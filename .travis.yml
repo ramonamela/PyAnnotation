@@ -1,0 +1,2 @@
+before install:
+  - ./scripts/installSnpEffSnpSift.sh
