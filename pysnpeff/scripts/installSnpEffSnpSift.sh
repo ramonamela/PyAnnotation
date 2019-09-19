@@ -9,8 +9,10 @@ mkdir -p "$HOME/.local/bin"
 if [[ :$PATH: != *:"$HOME/.local/bin":* ]] ; then
   echo 'export $PATH:"$HOME/.local/bin"' >> "$HOME/.profile"
 fi
-scp snpEff/snpEff.jar "$HOME/.local/bin/SnpEff.jar"
-scp snpEff/SnpSift.jar "$HOME/.local/bin/SnpSift.jar"
-chmod +x "$HOME/.local/bin/SnpEff.jar" "$HOME/.local/bin/SnpSift.jar"
+mkdir -p "$HOME/.local/etc/"
+scp -r snpEff "$HOME/.local/etc/"
+chmod +x "$HOME/.local/etc/snpEff/snpEff.jar" "$HOME/.local/etc/snpEff/SnpSift.jar"
+ln -s "$HOME/.local/etc/snpEff/snpEff.jar" "$HOME/.local/bin/SnpEff.jar"
+ln -s "$HOME/.local/etc/snpEff/SnpSift.jar" "$HOME/.local/bin/SnpSift.jar"
 popd
 rm -r "$tmpdir"
