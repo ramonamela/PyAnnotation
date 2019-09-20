@@ -1,0 +1,11 @@
+{
+  "steps": [
+    {
+      "program": "snpsift",
+      "command": "annotate",
+      "list_fields": [
+        "CLNDISDB","CLNDISDBINCL","CLNDN","CLNSIG","CLNREVSTAT"
+      ]
+    }
+  ]
+}
