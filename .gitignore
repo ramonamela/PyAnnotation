@@ -4,3 +4,7 @@
 
 # PyCharm
 .idea
+
+#pysnpeff/config/commands.txt
+#local.json
+#local_execution.sh

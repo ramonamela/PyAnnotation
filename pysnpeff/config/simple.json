@@ -7,5 +7,6 @@
         "CLNDISDB","CLNDISDBINCL","CLNDN","CLNSIG","CLNREVSTAT"
       ]
     }
-  ]
+  ],
+  "database_file":"/mnt/nfs/eucancan_vcf_vc/databases/clinvar.vcf.gz"
 }

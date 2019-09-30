@@ -1,0 +1,10 @@
+{
+  "steps": [
+    {
+      "program": "snpsift",
+      "command": "annotate",
+      "annotate_info": false,
+      "database_file":"/home/ramela/Downloads/example_vcfs/databases/00-All.vcf.gz"
+    }
+  ]
+}

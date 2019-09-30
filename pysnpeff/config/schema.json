@@ -39,18 +39,6 @@
             "database_file"
           ]
         }
-      ],
-      "oneOf": [
-        {
-          "required": [
-            "genome_version"
-          ]
-        },
-        {
-          "required": [
-            "database_file"
-          ]
-        }
       ]
     },
     "SnpSiftDbnsfp": {
@@ -274,7 +262,7 @@
     "SnpSiftAnnotate": {
       "type": "object",
       "properties": {
-        "program": {
+        "command": {
           "type": "string",
           "enum": [
             "annotate"
@@ -410,23 +398,10 @@
         {
           "$ref": "#/definitions/SnpEffAnn"
         }
-      ],
-      "oneOf": [
-        {
-          "$ref": "#/definitions/SnpEffAnn"
-        }
       ]
     },
     "SnpAnnotationStep": {
       "anyOf": [
-        {
-          "$ref": "#/definitions/SnpSiftStep"
-        },
-        {
-          "$ref": "#/definitions/SnpEffStep"
-        }
-      ],
-      "oneOf": [
         {
           "$ref": "#/definitions/SnpSiftStep"
         },
