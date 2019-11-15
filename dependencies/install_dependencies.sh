@@ -12,7 +12,7 @@ set -e # Exit when command fails
 #
 
 SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" >/dev/null 2>&1 && pwd )"
-echo ${SCRIPT_DIR}
+BASE_DIR="${SCRIPT_DIR}/../"
 
 #
 # HELPER METHODS
@@ -20,12 +20,12 @@ echo ${SCRIPT_DIR}
 
 install_suse_dependencies() {
   sudo zypper update
-  sudo zypper -y --non-interactive --no-recommends install libmysqlclient-dev libgd-dev bioperl expect
+  sudo zypper -y --non-interactive --no-recommends install libmysqlclient-dev libgd-dev bioperl
 }
 
 install_ubuntu_dependencies() {
   sudo apt-get update
-  sudo apt-get -y --no-install-recommends --no-install-recommends  install libmysqlclient-dev libgd-dev bioperl expect
+  sudo apt-get -y --no-install-recommends --no-install-recommends  install libmysqlclient-dev libgd-dev bioperl
 }
 
 install_general_dependencies() {
@@ -55,6 +55,7 @@ install_general_dependencies() {
 
 install_vep() {
   install_dir=$1
+  mkdir -p ${install_dir}
   pushd ${install_dir}
   cpan App::cpanminus
   cpanm Exception
@@ -75,16 +76,19 @@ install_vep() {
   echo "export PERL5LIB=\${PERL5LIB}:${install_dir}/dependencies/ensembl-vep/modules/:${install_dir}/dependencies/ensembl-vep/" >> ~/.bashrc
   source ~/.bashrc
   echo "n\nn\nn\nn" | perl INSTALL.pl
-  #spawn perl INSTALL.pl
-  #expect "Do you wish to exit so you can get updates (y) or continue (n):"
-  #send -- "n"
-  #expect "Do you want to install any cache files (y/n)?"
-  #send -- "n"
-  #expect "Do you want to install any FASTA files (y/n)?"
-  #send -- "n"
-  #expect "Do you want to install any plugins (y/n)?"
-  #send -- "n"  
   popd
+}
+
+install_snpEff() {
+  install_dir=${1}
+  if [ ! -d "${install_dir}" ]; then
+    pushd /tmp
+    wget http://sourceforge.net/projects/snpeff/files/snpEff_v4_3t_core.zip
+    unzip snpEff_v4_3t_core.zip
+    mv /tmp/snpEff ${install_dir}
+    rm snpEff_v4_3t_core.zip
+    popd
+  fi
 }
 
 #
@@ -98,7 +102,8 @@ main() {
   echo "## INSTALL GENERAL DEPENDENCIES ##"
   install_general_dependencies
   echo "## INSTALL ENSEMBL-VEP ##"
-  install_vep ${SCRIPT_DIR}/ensembl-vep
+  install_vep ${BASE_DIR}/dependencies/ensembl-vep
+  install_snpEff ${BASE_DIR}/dependencies/snpEff
 }
 
 #

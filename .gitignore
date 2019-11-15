@@ -9,3 +9,5 @@
 #local.json
 #local_execution.sh
 data/cache
+dependencies/snpEff/
+dependencies/ensembl-vep
