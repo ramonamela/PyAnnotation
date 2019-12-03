@@ -18,12 +18,14 @@ BASE_DIR="${SCRIPT_DIR}/../"
 # HELPER METHODS
 #
 
+## In order to have everything together, it is recommended to have a symlink of ~/.vep to ${BASE_DIR}/data/cache/vep_data
+## and snpEff/data to ${BASE_DIR}/data/cache/snpEff_data
+## This is done by default when installing vep and snpEff with this scripts
+## More precisely, there are the commands used to do so:
+## ln -s "${BASE_DIR}/data/cache/vep_data" "${HOME}/.vep"
+## ln -s "${BASE_DIR}/data/cache/snpEff_data" "${install_dir}/data"
 
-#
-# MAIN METHOD
-#
-
-main() {
+download_vep_files() {
   ## Cache files for GRCh38
   if [ ! -f "${HOME}/.vep/homo_sapiens/94_GRCh38/10/99000001-100000000.gz" ]; then
     mkdir -p "${HOME}/.vep/homo_sapiens/94_GRCh38"
@@ -40,22 +42,59 @@ main() {
     pushd ${BASE_DIR}/dependencies/ensembl-vep
     perl convert_cache.pl -species "Homo_sapiens" -version 94
     popd
-    "${HOME}/.vep/homo_sapiens/94_GRCh38/10/all_vars.gz does not exist"
   fi
-  if [ ! -f "${BASE_DIR}/data/cache/clinvar.vcf.gz" ]; then
-    pushd "${BASE_DIR}/data/cache/"
+	if [ ! -d "${HOME}/.vep/homo_sapiens/dna/" ]; then
+		mkdir -p "${HOME}/.vep/homo_sapiens/dna/"
+	fi
+	if [ ! -f "${HOME}/.vep/homo_sapiens/dna/Homo_sapiens.GRCh38.dna.primary_assembly.fa.gz" ]; then
+		pushd "${HOME}/.vep/homo_sapiens/dna/"
+		curl -O ftp://ftp.ensembl.org/pub/release-94/fasta/homo_sapiens/dna/Homo_sapiens.GRCh38.dna.primary_assembly.fa.gz
+		gzip -d Homo_sapiens.GRCh38.dna.primary_assembly.fa.gz
+		bgzip Homo_sapiens.GRCh38.dna.primary_assembly.fa
+		rm -f Homo_sapiens.GRCh38.dna.primary_assembly.fa
+		popd
+	fi
+}
+
+download_snpeff_files() {
+  ## Cache files for GRCh38 - It seems it's the version 86. Check for updates
+  if [ ! -d "${BASE_DIR}/data/cache/snpEff_data" ]; then
+    mkdir -p "${BASE_DIR}/data/cache/snpEff_data"
+  fi
+  ## Cache files for GRCh38
+  if [ ! -f "${BASE_DIR}/data/cache/snpEff_data/snpEff_v4_3_GRCh38.86.zip" ]; then
+    pushd "${BASE_DIR}/data/cache/snpEff_data/"
+    wget https://sourceforge.net/projects/snpeff/files/databases/v4_3/snpEff_v4_3_GRCh38.86.zip
+    popd
+  fi
+  if [ ! -d "${BASE_DIR}/data/cache/snpEff_data/GRCh38.86" ]; then
+    pushd "${BASE_DIR}/data/cache/snpEff_data/"
+    unzip -o snpEff_v4_3_GRCh38.86.zip
+    rm snpEff_v4_3_GRCh38.86.zip
+    mv ./data/GRCh38.86 .
+    rm -r data
+    popd
+  fi
+}
+
+download_common_files() {
+  ## CLINVAR ##
+	if [ ! -d "${BASE_DIR}/data/cache/clinvar/clinvar.vcf.gz" ]; then
+		mkdir -p "${BASE_DIR}/data/cache/clinvar"
+	fi
+  if [ ! -f "${BASE_DIR}/data/cache/clinvar/clinvar.vcf.gz" ]; then
+    pushd "${BASE_DIR}/data/cache/clinvar"
     wget ftp://ftp.ncbi.nlm.nih.gov/pub/clinvar/vcf_GRCh38/clinvar.vcf.gz
     wget ftp://ftp.ncbi.nlm.nih.gov/pub/clinvar/vcf_GRCh38/clinvar.vcf.gz.tbi
     wget ftp://ftp.ncbi.nlm.nih.gov/pub/clinvar/vcf_GRCh38/clinvar.vcf.gz.md5
     popd
   fi
-  if [ ! -f "${BASE_DIR}/data/cache/dbNSFP4.0a.zip" ]; then
-    pushd "${BASE_DIR}/data/cache/"
-    pip install gdown
-    popd
-    gdown https://drive.google.com/uc?id=1BNLEdIc4CjCeOa7V7Z8n8P8RHqUaF5GZ
-  fi
-  if [ ! -f "${BASE_DIR}/data/cache/dbNSFP4.0a.txt.gz" ]; then
+
+  ## dbNSFP ##
+	if [ ! -d "${BASE_DIR}/data/cache/dbNSFP" ]; then
+		mkdir -p "${BASE_DIR}/data/cache/dbNSFP"
+	fi
+  if [ ! -f "${BASE_DIR}/data/cache/dbNSFP/dbNSFP4.0a.txt.gz" ]; then
     path_to_executable=$(whereis htsfile | awk '{ print $2 }')
     if [ ! -x "$path_to_executable" ] ; then
       pushd /opt
@@ -69,17 +108,70 @@ main() {
       source ~/.bashrc
       popd
     fi
-    pushd "${BASE_DIR}/data/cache/"
-      unzip -u dbNSFP4.0a.zip
-      zcat dbNSFP4.0a_variant.chr1 | head -n1 > dbNSFP4.0a.txt
-      zcat dbNSFP4.0a_variant.chr* | grep -v "#" >> dbNSFP4.0a.txt
-      rm dbNSFP4.0a_variant.chr*
-      bgzip dbNSFP4.0a.txt
-      tabix -s 1 -b 2 -e 2 dbNSFP4.0a.txt.gz
-      rm dbNSFP4.0a.txt
+  	if [ ! -f "${BASE_DIR}/data/cache/dbNSFP/dbNSFP4.0a.zip" ]; then
+    	pushd "${BASE_DIR}/data/cache/dbNSFP"
+    	pip install gdown
+    	popd
+    	gdown https://drive.google.com/uc?id=1BNLEdIc4CjCeOa7V7Z8n8P8RHqUaF5GZ
+  	fi
+    pushd "${BASE_DIR}/data/cache/dbNSFP"
+    unzip -u dbNSFP4.0a.zip
+    zcat dbNSFP4.0a_variant.chr1 | head -n1 > dbNSFP4.0a.txt
+    zcat dbNSFP4.0a_variant.chr* | grep -v "#" >> dbNSFP4.0a.txt
+    rm dbNSFP4.0a_variant.chr*
+    bgzip dbNSFP4.0a.txt
+    tabix -s 1 -b 2 -e 2 dbNSFP4.0a.txt.gz
+    rm dbNSFP4.0a.txt
     popd
   fi
-  #${BASE_DIR}/dependencies/ensembl-vep/vep 
+	## CiViC ##
+	if [ ! -d "${BASE_DIR}/data/cache/civic" ]; then
+		mkdir "${BASE_DIR}/data/cache/civic"
+	fi
+	if [ ! -f "${BASE_DIR}/data/cache/civic/nightly-GeneSummaries.tsv" ]; then
+		pushd "${BASE_DIR}/data/cache/civic"
+		wget https://civicdb.org/downloads/nightly/nightly-GeneSummaries.tsv
+		popd
+	fi
+	if [ ! -f "${BASE_DIR}/data/cache/civic/nightly-VariantSummaries.tsv" ]; then
+		pushd "${BASE_DIR}/data/cache/civic"
+    wget https://civicdb.org/downloads/nightly/nightly-VariantSummaries.tsv
+    popd
+	fi
+  if [ ! -f "${BASE_DIR}/data/cache/civic/nightly-ClinicalEvidenceSummaries.tsv" ]; then
+    pushd "${BASE_DIR}/data/cache/civic"
+    wget https://civicdb.org/downloads/nightly/nightly-ClinicalEvidenceSummaries.tsv
+    popd
+  fi
+  if [ ! -f "${BASE_DIR}/data/cache/civic/nightly-AssertionSummaries.tsv" ]; then
+    pushd "${BASE_DIR}/data/cache/civic"      
+    wget https://civicdb.org/downloads/nightly/nightly-AssertionSummaries.tsv
+    popd
+  fi
+	## dbSNP ##
+	base_path_dbSNP="${BASE_DIR}/data/cache/dbSNP/"
+	if [ ! -d "${base_path_dbSNP}" ]; then
+		mkdir -p "${base_path_dbSNP}"
+	fi
+	files_to_download=( "All_20180418.vcf.gz" "All_20180418.vcf.gz.md5" "All_20180418.vcf.gz.tbi" )
+	base_ftp_path="ftp://ftp.ncbi.nlm.nih.gov/snp/organisms/human_9606_b151_GRCh38p7/VCF/"	
+	for i in "${files_to_download[@]}"; do
+		pushd ${base_path_dbSNP}
+		if [ ! -f "${base_path_dbSNP}${files_to_download}" ]; then
+			wget "${base_ftp_path}${i}"
+		fi
+		popd
+	done
+}
+
+#
+# MAIN METHOD
+#
+
+main() {
+  download_common_files
+  download_vep_files
+  download_snpeff_files
 }
 
 #

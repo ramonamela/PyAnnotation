@@ -20,15 +20,24 @@ BASE_DIR="${SCRIPT_DIR}/../"
 
 install_suse_dependencies() {
   sudo zypper update
-  sudo zypper -y --non-interactive --no-recommends install libmysqlclient-dev libgd-dev bioperl
+  sudo zypper -y --non-interactive --no-recommends install libmysqlclient-dev libgd-dev bioperl bcftools
 }
 
 install_ubuntu_dependencies() {
   sudo apt-get update
-  sudo apt-get -y --no-install-recommends --no-install-recommends  install libmysqlclient-dev libgd-dev bioperl
+  sudo apt-get -y --no-install-recommends --no-install-recommends  install libmysqlclient-dev libgd-dev bioperl bcftools
 }
 
 install_general_dependencies() {
+  dist=$(cat /etc/os-release | grep ID_LIKE | tr "=" "\t" | awk '{ print $2 }' | tr -d "\"")
+  case "${dist}" in
+    ubuntu)
+      install_ubuntu_dependencies
+      ;;
+    suse)
+      install_suse_dependencies
+      ;;
+    esac
   path_to_executable=$(whereis htsfile | awk '{ print $2 }')
   if [ ! -x "$path_to_executable" ] ; then
     pushd /opt
@@ -42,15 +51,6 @@ install_general_dependencies() {
     source ~/.bashrc
     popd
   fi
-  dist=$(cat /etc/os-release | grep ID_LIKE | tr "=" "\t" | awk '{ print $2 }' | tr -d "\"")
-  case "${dist}" in
-    ubuntu)
-      install_ubuntu_dependencies
-      ;;
-    suse)
-      install_suse_dependencies
-      ;;
-    esac
 }
 
 install_vep() {
@@ -58,6 +58,7 @@ install_vep() {
   mkdir -p ${install_dir}
   pushd ${install_dir}
   cpan App::cpanminus
+  cpanm Module::Build
   cpanm Exception
   cpanm Test::Pod
   cpanm Test::Pod::Coverage
@@ -67,16 +68,33 @@ install_vep() {
   cpanm Bio::Root::Root
   cpanm Bio::DB::BioFetch
   cpanm Bio::DB::WebDBSeqI
+  cpanm Bio::DB::HTS
+  cpanm Bio::DB::HTS::VCF
+  cpanm Bio::DB::HTS::Tabix
   cpanm Bio::SeqFeature::Lite
-  cpan Bio::DB:HTS
   cpanm DBI
   cpanm DBD::mysql
   cpanm Archive::Zip 
   echo "export PATH=\${PATH}:${install_dir}" >> ~/.bashrc
-  echo "export PERL5LIB=\${PERL5LIB}:${install_dir}/dependencies/ensembl-vep/modules/:${install_dir}/dependencies/ensembl-vep/" >> ~/.bashrc
+  echo "export PERL5LIB=${install_dir}/:${install_dir}/modules/:\${PERL5LIB}" >> ~/.bashrc
   source ~/.bashrc
-  echo "n\nn\nn\nn" | perl INSTALL.pl
+  #perl INSTALL.pl --NO_HTSLIB --NO_UPDATE --PLUGINS dbNSFP --AUTO p
+  perl INSTALL.pl --NO_HTSLIB --NO_UPDATE --AUTO p --PLUGINS dbNSFP
+  echo "${BASE_DIR}/data/cache/vep_data"
+  mkdir -p "${BASE_DIR}/data/cache/vep_data"
+  #mkdir -p "${HOME}/.vep/Plugins"
+  #pushd "${HOME}/.vep/Plugins"
+  #wget https://github.com/Ensembl/VEP_plugins/blob/postreleasefix/94/dbNSFP.pm
+  #popd
   popd
+  if [[ -L "${HOME}/.vep" && -d "${HOME}/.vep" ]]; then
+    rm -r "${HOME}/.vep"
+  fi
+  if [[ ! -d "${HOME}/.vep" ]]; then
+    echo "Symlinks"
+    ln -s "${BASE_DIR}/data/cache/vep_data" "${HOME}/.vep"
+  fi
+  echo "End install VEP"
 }
 
 install_snpEff() {
@@ -88,6 +106,8 @@ install_snpEff() {
     mv /tmp/snpEff ${install_dir}
     rm snpEff_v4_3t_core.zip
     popd
+    mkdir -p "${BASE_DIR}/data/cache/snpEff_data"
+    ln -s "${BASE_DIR}/data/cache/snpEff_data" "${install_dir}/data"
   fi
 }
 

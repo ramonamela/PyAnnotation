@@ -18,24 +18,8 @@ BASE_DIR="${SCRIPT_DIR}/../"
 #java -Xmx64g -jar /gpfs/projects/bsc05/apps/MN4/SNPEFF/SRC/snpEff/snpEff.jar GRCh37.p13.RefSeq > $results_combine/snvs$trim/snvs.PASS.ANNOT.GRCh37.p13.RefSeq.vcf 
 
 #
-# HELPER METHODS
+# SUBSET OF COMMANDS THAT WE ARE INTERESTED IN
 #
-
-available_punctuations() {
-  cat ${BASE_DIR}/useful_commands/snpeff_instruction.sh | head -n3 | tail -n1 | awk '{ print $7 }' | tr "," "\n" | grep score
-}
-
-get_all_options() {
-  option=${1}
-  cat ./snpeff_instruction.sh | head -n3 | tail -n1 | awk '{ print $7 }' | tr "," "\n" | grep ${option}
-}
-
-#java -Xmx64g -jar /gpfs/projects/bsc05/apps/MN4/SNPEFF/SRC/snpEff/SnpSift.jar dbnsfp -f 'MutationAssessor_score,MutationAssessor_pred,SIFT_score,SIFT_pred,FATHMM_score,FATHMM_pred' -db /gpfs/projects/bsc05/apps/MN4/SNPEFF/SRC/snpEff/db/GRCh37/dbNSFP3.5a/dbNSFP3.5a_hg19.txt.gz -m -a input.vcf | \
-#java -Xmx64g -jar /gpfs/projects/bsc05/apps/MN4/SNPEFF/SRC/snpEff/SnpSift.jar annotate -id -info 'CLNDISDB,CLNDISDBINCL,CLNDN,CLNSIG,CLNREVSTAT' /gpfs/projects/bsc05/apps/MN4/SNPEFF/SRC/snpEff/db/GRCh37/clinvar.vcf.gz /dev/stdin -a | \
-#java -Xmx64g -jar /gpfs/projects/bsc05/apps/MN4/SNPEFF/SRC/snpEff/snpEff.jar GRCh37.p13.RefSeq > $results_combine/snvs$trim/snvs.PASS.ANNOT.GRCh37.p13.RefSeq.vcf
-
-## By now, we don't support this one since it's not annotated in the ICGC portal ##
-##??##java -Xmx64g -jar /gpfs/projects/bsc05/apps/MN4/SNPEFF/SRC/snpEff/SnpSift.jar annotate -id -noInfo /gpfs/projects/bsc05/apps/MN4/SNPEFF/SRC/snpEff/db/GRCh37/00-All.vcf.gz /dev/stdin -a
 
 ## Scores taken into account
 #MutationAssessor_score
@@ -45,13 +29,52 @@ get_all_options() {
 #FATHMM_score
 #FATHMM_pred
 
+#java -Xmx64g -jar /gpfs/projects/bsc05/apps/MN4/SNPEFF/SRC/snpEff/SnpSift.jar dbnsfp -f 'MutationAssessor_score,MutationAssessor_pred,SIFT_score,SIFT_pred,FATHMM_score,FATHMM_pred' -db /gpfs/projects/bsc05/apps/MN4/SNPEFF/SRC/snpEff/db/GRCh37/dbNSFP3.5a/dbNSFP3.5a_hg19.txt.gz -m -a input.vcf | \
+#java -Xmx64g -jar /gpfs/projects/bsc05/apps/MN4/SNPEFF/SRC/snpEff/SnpSift.jar annotate -id -info 'CLNDISDB,CLNDISDBINCL,CLNDN,CLNSIG,CLNREVSTAT' /gpfs/projects/bsc05/apps/MN4/SNPEFF/SRC/snpEff/db/GRCh37/clinvar.vcf.gz /dev/stdin -a | \
+#java -Xmx64g -jar /gpfs/projects/bsc05/apps/MN4/SNPEFF/SRC/snpEff/snpEff.jar GRCh37.p13.RefSeq > $results_combine/snvs$trim/snvs.PASS.ANNOT.GRCh37.p13.RefSeq.vcf
+
+## By now, we don't support this one since it's not annotated in the ICGC portal ##
+##??##java -Xmx64g -jar /gpfs/projects/bsc05/apps/MN4/SNPEFF/SRC/snpEff/SnpSift.jar annotate -id -noInfo /gpfs/projects/bsc05/apps/MN4/SNPEFF/SRC/snpEff/db/GRCh37/00-All.vcf.gz /dev/stdin -a
+
+#
+# HELPER METHODS
+#
+
+available_punctuations() {
+  cat ${BASE_DIR}/useful_commands/snpeff_instructions.sh | head -n3 | tail -n1 | awk '{ print $7 }' | tr "," "\n" | grep score
+}
+
+get_all_options() {
+  option=${1}
+  cat ${BASE_DIR}/useful_commands/snpeff_instructions.sh | head -n3 | tail -n1 | awk '{ print $7 }' | tr "," "\n" | grep ${option}
+}
+
 annotate_file() {
   input_file=${1}
   output_file=${2}
-  zcat ${}
-  java -Xmx64g -jar /gpfs/projects/bsc05/apps/MN4/SNPEFF/SRC/snpEff/SnpSift.jar dbnsfp -f 'MutationAssessor_score,MutationAssessor_pred,SIFT_score,SIFT_pred,FATHMM_score,FATHMM_pred' -db /gpfs/projects/bsc05/apps/MN4/SNPEFF/SRC/snpEff/db/GRCh37/dbNSFP3.5a/dbNSFP3.5a_hg19.txt.gz -m -a /dev/stdin -a | \
-  java -Xmx64g -jar /gpfs/projects/bsc05/apps/MN4/SNPEFF/SRC/snpEff/SnpSift.jar annotate -id -info 'CLNDISDB,CLNDISDBINCL,CLNDN,CLNSIG,CLNREVSTAT' /gpfs/projects/bsc05/apps/MN4/SNPEFF/SRC/snpEff/db/GRCh37/clinvar.vcf.gz /dev/stdin -a | \
-  java -Xmx64g -jar /gpfs/projects/bsc05/apps/MN4/SNPEFF/SRC/snpEff/snpEff.jar GRCh37.p13.RefSeq > $results_combine/snvs$trim/snvs.PASS.ANNOT.GRCh37.p13.RefSeq.vcf
+  compress=false
+  if [[ ${output_file} == *vcf.gz ]]; then
+    compress=true
+    output_file=${output_file::-3}
+  elif [[ ! ${output_file} == *vcf ]]; then
+    false
+  fi
+  if [[ ${input_file} == *vcf.gz ]]; then
+    zcat ${input_file} | \
+    java -Xmx64g -jar ${BASE_DIR}/dependencies/snpEff/SnpSift.jar dbnsfp -f 'MutationAssessor_score,MutationAssessor_pred,SIFT_score,SIFT_pred,FATHMM_score,FATHMM_pred' -db ${BASE_DIR}/data/cache/dbNSFP4.0a.txt.gz -m /dev/stdin -a | \
+    java -Xmx64g -jar ${BASE_DIR}/dependencies/snpEff/SnpSift.jar annotate -info 'CLNDISDB,CLNDISDBINCL,CLNDN,CLNSIG,CLNREVSTAT' ${BASE_DIR}/data/cache/clinvar.vcf.gz /dev/stdin -a | \
+    java -Xmx64g -jar ${BASE_DIR}/dependencies/snpEff/snpEff.jar GRCh38.86 > ${output_file}
+  elif [[ ${input_file} == *vcf ]]; then
+    java -Xmx64g -jar ${BASE_DIR}/dependencies/snpEff/SnpSift.jar dbnsfp -f 'MutationAssessor_score,MutationAssessor_pred,SIFT_score,SIFT_pred,FATHMM_score,FATHMM_pred' -db ${BASE_DIR}/data/cache/dbNSFP4.0a.txt.gz -m -a ${input_file} | \
+    java -Xmx64g -jar ${BASE_DIR}/dependencies/snpEff/SnpSift.jar annotate -id -info 'CLNDISDB,CLNDISDBINCL,CLNDN,CLNSIG,CLNREVSTAT' ${BASE_DIR}/data/cache/clinvar.vcf.gz /dev/stdin -a | \
+    java -Xmx64g -jar ${BASE_DIR}/dependencies/snpEff/snpEff.jar GRCh38.86 > ${output_file}
+  else
+    false
+  fi
+  if [[ ${compress} = true ]]; then
+    bgzip -f "${output_file}"
+    tabix -f "${output_file}.gz"
+  fi
 }
 
 #
@@ -59,7 +82,7 @@ annotate_file() {
 #
 
 main() {
-  true
+  annotate_file ${BASE_DIR}/data/examples/example.vcf.gz ${BASE_DIR}/data/examples/example_snpeff.vcf.gz
 }
 
 #
