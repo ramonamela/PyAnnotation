@@ -13,6 +13,8 @@ import pandas as pd
 import os
 from os.path import dirname
 from os.path import abspath
+import time
+import numpy as np
 
 
 def bgzip_tabix_file(in_file, out_file=None):
@@ -50,7 +52,7 @@ def open_potential_gz(input_vcf):
 def from_info_field_to_dataframe(info_field):
     splitted_info = list(map(lambda x: x.split("="), info_field.split(";")))
     info_field_headers = list(map(lambda x: x[0], splitted_info))
-    info_field_content = list(map(lambda x: x[1], splitted_info))
+    info_field_content = list(map(lambda x: x[1] if len(x) > 1 else "true", splitted_info))
     return pd.DataFrame([info_field_content], columns=info_field_headers)
 
 
@@ -98,15 +100,16 @@ def split_info(vcf_dataframe):
     return result_dataframe
 
 
-def split_ann(vcf_dataframe, ann_header):
+def split_ann(vcf_dataframe, ann_header, allele_separator=","):
     vcf_header = vcf_dataframe.columns.tolist()
     ann_index = vcf_header.index("ANN")
 
     lists_with_ann_content = list(map(lambda z: [list(a) for a in zip(*z)], list(
         map(lambda x: list(map(lambda y: list(map(lambda w: "." if w == "" else w, y.split("|"))), x.split(","))),
             list(vcf_dataframe["ANN"])))))
-    new_ann_dataframe = pd.DataFrame(list(map(lambda x: list(map(lambda y: ','.join(y), x)), lists_with_ann_content)),
-                                     columns=ann_header)
+    new_ann_dataframe = pd.DataFrame(
+        list(map(lambda x: list(map(lambda y: allele_separator.join(y), x)), lists_with_ann_content)),
+        columns=ann_header)
 
     vcf_dataframe_without_ann = vcf_dataframe.drop(columns="ANN")
     result_dataframe = pd.concat([vcf_dataframe_without_ann, new_ann_dataframe], axis=1)
@@ -175,6 +178,7 @@ def add_columns_from_several_ids(input_dataframe, auxiliar_dataframe, field_list
             dataframe_to_return = auxiliar_dataframe[base_mask]
             for field in auxiliar_fields_to_select:
                 if dataframe_to_return.shape[0] > 0:
+                    dataframe_to_return = dataframe_to_return.fillna(value=".")
                     solution_dictionary[field].append("|".join(list(dataframe_to_return[field])))
                 else:
                     solution_dictionary[field].append(".")
@@ -204,12 +208,12 @@ def add_civic_variant_clinical_evidence_fields(vcf_dataframe, path_to_tsv, field
 
 def collapse_dataframe_column(input_dataframe, single_cols=[], multiple_cols=[], external_sep=",",
                               old_internal_sep="&", new_internal_sep="&"):
-    for pattern in single_cols:
+    for pattern in set(single_cols):
         if pattern in list(input_dataframe.columns):
             input_dataframe[pattern][pd.notnull(input_dataframe[pattern])] = input_dataframe[pattern][
                 pd.notnull(input_dataframe[pattern])].apply(
                 lambda x: x.split(external_sep)[0].replace(old_internal_sep, new_internal_sep))
-    for pattern in multiple_cols:
+    for pattern in set(multiple_cols):
         if pattern in list(input_dataframe.columns):
             input_dataframe[pattern] = input_dataframe[pattern].apply(
                 lambda x: x.replace(external_sep, new_internal_sep) if x.split(external_sep)[0] == "." else
@@ -219,7 +223,7 @@ def collapse_dataframe_column(input_dataframe, single_cols=[], multiple_cols=[],
 
 def clean_dataframe_column(input_dataframe, cols=[], old_allele_sep=",", new_allele_sep=",",
                            old_internal_sep="&", new_internal_sep="&"):
-    for pattern in cols:
+    for pattern in set(cols):
         if pattern in list(input_dataframe.columns):
             input_dataframe[pattern][pd.notnull(input_dataframe[pattern])] = input_dataframe[pattern][
                 pd.notnull(input_dataframe[pattern])].apply(
@@ -231,11 +235,12 @@ def clean_dataframe_column(input_dataframe, cols=[], old_allele_sep=",", new_all
 def split_dataframe_column(input_dataframe, cols=[], old_internal_sep=",", new_internal_sep="&",
                            reference_column="Allele", reference_separator="&"):
     column_length = list(map(lambda x: len(x.split(reference_separator)), list(input_dataframe[reference_column])))
-    for pattern in cols:
+    for pattern in set(cols):
         if pattern in list(input_dataframe.columns):
             input_dataframe[pattern] = list(map(
-                lambda x: new_internal_sep.join(["."] * x[0]) if x[1] == "." else x[1].replace(old_internal_sep,
-                                                                                               new_internal_sep),
+                lambda x: new_internal_sep.join(["."] * x[0]) if (str(x[1]) == 'nan') or (x[1] == ".") else x[
+                    1].replace(old_internal_sep,
+                               new_internal_sep),
                 list(zip(column_length, input_dataframe[pattern]))))
     return input_dataframe
 
@@ -260,17 +265,161 @@ def add_civic_gene_description_fields(input_dataframe, gene_summaries_tsv, gene_
     return vcf_dataframe
 
 
+def add_dbsnp_fields(input_dataframe, path_to_dbsnp, dbsnp_multialt_fields=[], dbsnp_unique_fields=[],
+                     dbsnp_boolean_fields=[]):
+    current_values = input_dataframe[["CHROM", "POS", "REF", "ALT", "Allele"]]
+    import tabix
+    dbsnp = tabix.open(path_to_dbsnp)
+
+    def get_columns(x):
+        try:
+            current_dataframe = pd.DataFrame(
+                dbsnp.query(str(x["CHROM"]).replace("chr", ""), int(x["POS"]) - 1, int(x["POS"])),
+                columns=["CHROM", "POS", "ID", "REF", "ALT", "QUAL", "FILTER", "INFO"])
+            current_row = current_dataframe[
+                (current_dataframe["POS"] == x["POS"]) & (current_dataframe["REF"] == x["REF"])]
+            current_alleles = [current_row["REF"].iloc[0]] + current_row["ALT"].iloc[0].split(",")
+            dbsnp_info_fields = list(map(lambda y: y.split("="), current_row["INFO"].iloc[0].split(";")))
+            dbsnp_info_names = [x[0] for x in dbsnp_info_fields]
+            dbsnp_info_values = [x[1] if len(x) > 1 else "1" for x in dbsnp_info_fields]
+            dbsnp_info_dataframe = pd.DataFrame([dbsnp_info_values], columns=dbsnp_info_names)
+            result_cols = []
+            for column in dbsnp_multialt_fields:
+                try:
+                    result_cols.append("|".join(list(map(lambda x: "=".join(x), list(
+                        zip(current_alleles, dbsnp_info_dataframe[column].iloc[0].split(",")))))))
+                except:
+                    result_cols.append(".")
+            for column in dbsnp_unique_fields:
+                try:
+                    result_cols.append(dbsnp_info_dataframe[column].iloc[0])
+                except:
+                    result_cols.append(".")
+            for column in dbsnp_boolean_fields:
+                try:
+                    result_cols.append(dbsnp_info_dataframe[column].iloc[0])
+                except:
+                    result_cols.append("0")
+            return result_cols
+        except:
+            return ["."] * (len(dbsnp_multialt_fields) + len(dbsnp_unique_fields) + len(dbsnp_boolean_fields))
+
+    input_dataframe = pd.concat([input_dataframe, pd.DataFrame(list(current_values.apply(get_columns, axis=1).values),
+                                                               columns=(
+                                                                       dbsnp_multialt_fields +
+                                                                       dbsnp_unique_fields +
+                                                                       dbsnp_boolean_fields))],
+                                axis=1)
+    return input_dataframe
+
+
+def add_dbnsfp_fields(input_dataframe, path_to_dbnsfp, dbnsfp_fields=[], variant_separator="&"):
+
+    with open_potential_gz(path_to_dbnsfp) as f:
+        header = f.readline().decode("utf-8").lstrip("#").rstrip("\n").rstrip("\r").split("\t")
+    extended_dbnsfp_fields = dbnsfp_fields + ["Ensembl_transcriptid", "HGVSc_snpEff", "HGVSc_VEP"]
+
+    #def pick_head(h):
+    #    print(h + " in " + str(header.index(h)))
+    #for dbsnp_field in extended_dbnsfp_fields:
+    #    pick_head(dbsnp_field)
+
+    import tabix
+    dbnsfp = tabix.open(path_to_dbnsfp)
+
+    def get_columns(x):
+        # x is a single row of the input dataframe
+        try:
+            current_dbnsfp_dataframe = pd.DataFrame(
+                dbnsfp.query(str(x["CHROM"]).replace("chr", ""), int(x["POS"]) - 1, int(x["POS"])),
+                columns=header)
+            current_row = current_dbnsfp_dataframe[
+                (current_dbnsfp_dataframe["pos(1-based)"] == x["POS"]) & (current_dbnsfp_dataframe["ref"] == x["REF"]) & (current_dbnsfp_dataframe["alt"] == x["ALT"])]
+            if current_row.shape[0] == 0:
+                raise Exception("Current row is not in the database")
+        except:
+            returned_values = []
+            for field in dbnsfp_fields:
+                returned_values.append(variant_separator.join(["."] * len(x["hgvsc_id"].split(variant_separator))))
+            return pd.Series(returned_values)
+        current_dataframe = pd.DataFrame(_transpose(list(map(lambda x: x.split(";"), list(current_row[extended_dbnsfp_fields].values)[0]))), columns = extended_dbnsfp_fields)
+        current_dataframe["vep_ids"] = list(map(lambda y: ":".join(y),list(zip(current_dataframe["Ensembl_transcriptid"].tolist(), current_dataframe["HGVSc_VEP"].tolist()))))
+        current_dataframe["snpeff_ids"] = list(map(lambda y: ":".join(y),list(zip(current_dataframe["Ensembl_transcriptid"].tolist(), current_dataframe["HGVSc_snpEff"].tolist()))))
+
+        returned_values = []
+        for field in dbnsfp_fields:
+            returned_values_current_field = []
+            for value_to_check in x["hgvsc_id"].split("&"):
+                try:
+                    returned_values_current_field.append(current_dataframe[(current_dataframe["snpeff_ids"] == value_to_check) | (current_dataframe["vep_ids"] == value_to_check)][field].iloc[0])
+                except:
+                    returned_values_current_field.append(".")
+            returned_values.append(variant_separator.join(returned_values_current_field))
+        return pd.Series(returned_values)
+
+    input_dataframe[dbnsfp_fields] = pd.DataFrame(input_dataframe[["CHROM", "POS", "REF", "ALT", "Allele", "hgvsc_id"]].apply(get_columns, axis=1))
+
+
+    #pd.DataFrame(list(current_values.apply(get_columns, axis=1).values), columns=dbnsfp_fields)
+
+    #input_dataframe = pd.concat([input_dataframe, pd.DataFrame(list(current_values.apply(get_columns, axis=1).values),
+    #                                                           columns=dbnsfp_fields)],
+    #                            axis=1)
+    return input_dataframe
+
+def add_clinvar_fields(input_dataframe, path_to_clinvar, clinvar_fields=[], variant_separator="&"):
+    if len(clinvar_fields) == 0:
+        return input_dataframe
+
+    import tabix
+    clinvar = tabix.open(path_to_clinvar)
+
+    def get_columns(x):
+        # x is a single row of the input dataframe
+        try:
+            header = ["CHROM", "POS", "ID","REF", "ALT", "QUAL", "FILTER", "INFO"]
+            current_clinvar_dataframe = pd.DataFrame(
+                clinvar.query(str(x["CHROM"]).replace("chr", ""), int(x["POS"]) - 1, int(x["POS"])), columns=header)
+            current_row = current_clinvar_dataframe[
+                (current_clinvar_dataframe["POS"] == x["POS"]) & (current_clinvar_dataframe["REF"] == x["REF"]) & (current_clinvar_dataframe["ALT"] == x["ALT"])]
+            if current_row.shape[0] == 0:
+                raise Exception("Current row is not in the database")
+        except:
+            return pd.Series(["."] * (len(clinvar_fields) + 1))
+
+        returned_values = [current_row["ID"].iloc[0]]
+        info_field = current_row["INFO"].iloc[0]
+        clinvar_dictionary = dict(list(map(lambda y: (y.split("=")[0], y.split("=")[1]), info_field.split(";"))))
+        for field in clinvar_fields:
+            try:
+                returned_values.append(clinvar_dictionary[field])
+            except:
+                returned_values.append(".")
+        return pd.Series(returned_values)
+
+    header_clinvar = ["CLINVAR_ID"] + clinvar_fields
+    input_dataframe[header_clinvar] = pd.DataFrame(input_dataframe[["CHROM", "POS", "REF", "ALT"]].apply(get_columns, axis=1))
+
+    return input_dataframe
+
+def _transpose(l):
+    return list(map(list, zip(*l)))
+
 def treat_chunk(chunk, vcf_header, ann_header,
                 input_additional_multifields=None,
                 vep_fields=None,
                 snpeff_fields=None,
                 clinvar_prefix=None,
                 clinvar_fields=None,
-                dbNSFP_fields=None):
+                dbNSFP_fields=None,
+                dbSNP_multiallelic_fields=None,
+                dbSNP_unique_fields=None,
+                dbSNP_boolean_fields=None):
     if input_additional_multifields is None:
-        input_additional_multifields = ["platformnames", "datasetnames", "callsetnames", "filt"]
+        input_additional_multifields = ["platformnames", "datasetnames", "callsetnames", "callable", "filt",
+                                        "datasetsmissingcall"]
     if vep_fields is None:
-        vep_fields = ["Allele", "Consequence", "IMPACT", "SYMBOL", "Gene", "Feature_type", "Feature", "BIOTYPE" "EXON",
+        vep_fields = ["Allele", "Consequence", "IMPACT", "SYMBOL", "Gene", "Feature_type", "Feature", "BIOTYPE", "EXON",
                       "INTRON", "HGVSc", "HGVSp", "cDNA_position", "CDS_position", "Protein_position", "Amino_acids",
                       "Codons", "Existing_variation", "DISTANCE", "STRAND", "FLAGS", "SYMBOL_SOURCE", "HGNC_ID",
                       "SOURCE", "HGVS_OFFSET", "HGVSg"]
@@ -280,13 +429,24 @@ def treat_chunk(chunk, vcf_header, ann_header,
                          "CDS.pos/CDS.length", "AA.pos/AA.length", "Distance", "ERRORS/WARNINGS/INFO"]
     if clinvar_fields is None:
         clinvar_fields = ["CLNDISDB", "CLNDISDBINCL", "CLNDN", "CLNSIG", "CLNREVSTAT"]
+    if clinvar_prefix is None:
+        clinvar_prefix = "ClinVar_ID"
     if dbNSFP_fields is None:
+        """
         dbNSFP_fields = ["MutationAssessor_score", "MutationAssessor_pred", "SIFT_score", "SIFT_pred",
                          "FATHMM_score", "FATHMM_pred", "Polyphen2_HDIV_score", "Polyphen2_HDIV_rankscore",
                          "Polyphen2_HDIV_pred", "Polyphen2_HVAR_score", "Polyphen2_HVAR_rankscore",
                          "Polyphen2_HVAR_pred"]
-    if clinvar_prefix is None:
-        clinvar_prefix = "ClinVar_ID"
+        """
+        dbNSFP_fields = ["MutationAssessor_score", "MutationAssessor_pred", "SIFT_score", "SIFT_pred", "FATHMM_score",
+                         "FATHMM_pred", "Polyphen2_HDIV_score", "Polyphen2_HDIV_pred", "Polyphen2_HVAR_score",
+                         "Polyphen2_HVAR_pred"]
+    if dbSNP_multiallelic_fields is None:
+        dbSNP_multiallelic_fields = ["TOPMED"]
+    if dbSNP_unique_fields is None:
+        dbSNP_unique_fields = ["SAO", "RS"]
+    if dbSNP_boolean_fields is None:
+        dbSNP_boolean_fields = ["ASP"]
 
     format_index = vcf_header.index("FORMAT")
     vcf_fields_header = vcf_header[:format_index]
@@ -297,7 +457,9 @@ def treat_chunk(chunk, vcf_header, ann_header,
     input_vcf_dataframe = pd.DataFrame(list(map(lambda x: x.decode("utf-8")[:-1].replace(" ", "").split("\t"), chunk)),
                                        columns=vcf_header)
     vcf_dataframe_with_info = split_info(input_vcf_dataframe)
+
     vcf_dataframe_with_info_ann = split_ann(vcf_dataframe_with_info, ann_header)
+
     vcf_dataframe_with_info_corrected = clean_dataframe_column(vcf_dataframe_with_info_ann,
                                                                cols=input_additional_multifields,
                                                                old_allele_sep="|", new_allele_sep="|",
@@ -306,21 +468,26 @@ def treat_chunk(chunk, vcf_header, ann_header,
                                                                cols=vep_fields + snpeff_fields,
                                                                old_allele_sep=",", new_allele_sep="&",
                                                                old_internal_sep="&", new_internal_sep="|")
-    clinvar_vep_result = [clinvar_prefix] + [clinvar_prefix + "_" + x for x in clinvar_fields]
-    vcf_dataframe_with_vep_corrected = collapse_dataframe_column(vcf_dataframe_with_info_corrected,
-                                                                 single_cols=clinvar_vep_result,
-                                                                 multiple_cols=dbNSFP_fields, external_sep=",",
-                                                                 old_internal_sep="&", new_internal_sep="&")
-    vcf_dataframe_with_vep_corrected = clean_dataframe_column(vcf_dataframe_with_vep_corrected,
-                                                              cols=clinvar_vep_result,
-                                                              old_allele_sep=",", new_allele_sep="&",
-                                                              old_internal_sep="&", new_internal_sep="|")
-    dbNSFP_snpsift_result = ["dbNSFP_" + x for x in dbNSFP_fields]
-    vcf_dataframe_with_splitted_cols = split_dataframe_column(vcf_dataframe_with_vep_corrected,
-                                                              cols=dbNSFP_snpsift_result, old_internal_sep=",",
-                                                              new_internal_sep="&", reference_column="Allele",
-                                                              reference_separator="&")
-    vcf_dataframe_with_hgvs_id = compute_hgvs_id(vcf_dataframe_with_splitted_cols)
+    #vcf_dataframe_with_snpsift_corrected = collapse_dataframe_column(vcf_dataframe_with_info_corrected,
+    #                                                             single_cols=clinvar_fields,
+    #                                                             multiple_cols=[], external_sep="&",
+    #                                                             old_internal_sep=",", new_internal_sep="|")
+    #clinvar_vep_result = [clinvar_prefix] + [clinvar_prefix + "_" + x for x in clinvar_fields]
+    #vcf_dataframe_with_vep_corrected = collapse_dataframe_column(vcf_dataframe_with_snpsift_corrected,
+    #                                                             single_cols=clinvar_vep_result,
+    #                                                             multiple_cols=dbNSFP_fields, external_sep=",",
+    #                                                             old_internal_sep="&", new_internal_sep="&")
+    #vcf_dataframe_with_vep_corrected = clean_dataframe_column(vcf_dataframe_with_vep_corrected,
+    #                                                          cols=clinvar_vep_result,
+    #                                                          old_allele_sep=",", new_allele_sep="&",
+    #                                                          old_internal_sep="&", new_internal_sep="|")
+    #dbNSFP_snpsift_result = ["dbNSFP_" + x for x in dbNSFP_fields]
+    #vcf_dataframe_with_splitted_cols = split_dataframe_column(vcf_dataframe_with_vep_corrected,
+    #                                                          cols=dbNSFP_snpsift_result, old_internal_sep=",",
+    #                                                          new_internal_sep="&", reference_column="Allele",
+    #                                                          reference_separator="&")
+    vcf_dataframe_with_hgvs_id = compute_hgvs_id(vcf_dataframe_with_info_corrected)
+
     module_path = dirname(dirname(abspath(__file__)))
     variant_summaries_fields_tsv = module_path + "/data/cache/civic/nightly-VariantSummaries.tsv"
     vcf_dataframe_with_civic_variant_summaries = add_civic_variant_summaries_fields(vcf_dataframe_with_hgvs_id,
@@ -330,6 +497,7 @@ def treat_chunk(chunk, vcf_header, ann_header,
                                                                                      ("variant", "variant"), (
                                                                                          "civic_variant_evidence_score",
                                                                                          "civic_variant_evidence_score")])
+
     variant_clinical_evidence_tsv = module_path + "/data/cache/civic/nightly-ClinicalEvidenceSummaries.tsv"
     variant_clinical_evidence_civic_fields = [("random", "random"),
                                               ("drugs", "drugs"),
@@ -345,11 +513,25 @@ def treat_chunk(chunk, vcf_header, ann_header,
         vcf_dataframe_with_civic_variant_summaries,
         variant_clinical_evidence_tsv,
         variant_clinical_evidence_civic_fields)
+
     gene_summaries_tsv = module_path + "/data/cache/civic/nightly-GeneSummaries.tsv"
     gene_summaries_civic_fields = [("random", "random"), ("description", "gene_description")]
     vcf_dataframe_with_civic_gene_description = add_civic_gene_description_fields(
         vcf_dataframe_with_civic_clinical_evidence, gene_summaries_tsv, gene_summaries_civic_fields)
-    return vcf_dataframe_with_civic_gene_description
+
+    path_to_dbsnp = module_path + "/data/cache/dbSNP/All_20180418.vcf.gz"
+    vcf_dataframe_with_dbsnp = add_dbsnp_fields(vcf_dataframe_with_civic_gene_description, path_to_dbsnp,
+                                                dbsnp_multialt_fields=dbSNP_multiallelic_fields,
+                                                dbsnp_unique_fields=dbSNP_unique_fields,
+                                                dbsnp_boolean_fields=dbSNP_boolean_fields)
+
+    path_to_dbNSFP = module_path + "/data/cache/dbNSFP/dbNSFP4.0a.txt.gz"
+    vcf_dataframe_with_dbnsfp = add_dbnsfp_fields(vcf_dataframe_with_dbsnp, path_to_dbNSFP, dbnsfp_fields=dbNSFP_fields)
+
+    path_to_clinvar = module_path + "/data/cache/clinvar/clinvar.vcf.gz"
+    vcf_dataframe_with_clinvar = add_clinvar_fields(vcf_dataframe_with_dbnsfp, path_to_clinvar, clinvar_fields=clinvar_fields)
+
+    return vcf_dataframe_with_clinvar
 
 
 def normalize_vcf_to_stream(path_to_vcf):
@@ -357,7 +539,7 @@ def normalize_vcf_to_stream(path_to_vcf):
     return p.stdout
 
 
-def from_vcf_to_maf(input_vcf, output_maf, chunk_size=10):
+def from_vcf_to_maf(input_vcf, output_maf, chunk_size=20):
     """Converts vcf to maf.
     Parameters
     ----------
@@ -366,6 +548,7 @@ def from_vcf_to_maf(input_vcf, output_maf, chunk_size=10):
     """
 
     with normalize_vcf_to_stream(input_vcf) as file:
+        # with open_potential_gz(input_vcf) as file:
 
         for line in file:
             line_string = line.decode("utf-8")
@@ -395,7 +578,6 @@ def from_vcf_to_maf(input_vcf, output_maf, chunk_size=10):
             results.append(mp_pool.apply_async(treat_chunk, (chunk, vcf_header, ann_header)))
 
         results = list(map(lambda x: x.get(), results))
-
         big_dataframe = pd.concat(results, sort=False)
         all_headers = list(big_dataframe.columns)
         common_fields = [x for x in all_headers if not x in individual_headers]
@@ -490,5 +672,7 @@ if __name__ == "__main__":
     in_file = sys.argv[1]
     out_file = sys.argv[2]
     # json_file = sys.argv[3]
+    start_time = time.time()
     from_vcf_to_maf(in_file, out_file)
+    print("Ellaspsed time: " + str(time.time() - start_time))
     # main(in_file, out_file, json_file)

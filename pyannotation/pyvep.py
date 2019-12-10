@@ -10,7 +10,7 @@ from pyannotation.utils import open_potential_gz
 import pandas as pd
 
 
-def annotate_vep(in_file, out_file, clinvar_fields=[], dbNSFP_fields=[]):
+def annotate_vep(in_file, out_file, clinvar_fields=[], dbNSFP_fields=[], dbSNP_fields=[]):
     compress = False
     if out_file[-3:] == ".gz":
         out_file = out_file[:-3]
@@ -23,6 +23,11 @@ def annotate_vep(in_file, out_file, clinvar_fields=[], dbNSFP_fields=[]):
     if len(clinvar_fields) > 0:
         command.extend(
             ["--custom", module_path + "/data/cache/clinvar/clinvar.vcf.gz,ClinVar_ID,vcf,exact,0," + ",".join(clinvar_fields)])
+
+    # dbSNP
+    if len(dbSNP_fields) > 0:
+        command.extend(["--custom", module_path + "/data/cache/dbSNP/All_20180418.vcf.gz,dbSNP_ID,vcf,exact,0," + ",".join(["TOPMED"])])
+
     # dbNSFP
     if len(dbNSFP_fields) > 0:
         command.extend(
@@ -42,8 +47,9 @@ def annotate_vep(in_file, out_file, clinvar_fields=[], dbNSFP_fields=[]):
 if __name__ == "__main__":
     in_file = sys.argv[1]
     out_file = sys.argv[2]
-    annotate_vep(in_file, out_file, clinvar_fields=["CLNDISDB", "CLNDISDBINCL", "CLNDN", "CLNSIG", "CLNREVSTAT"],
-                 dbNSFP_fields=["MutationAssessor_score", "MutationAssessor_pred", "SIFT_score", "SIFT_pred",
-                                "FATHMM_score", "FATHMM_pred", "Polyphen2_HDIV_score", "Polyphen2_HDIV_rankscore",
-                                "Polyphen2_HDIV_pred", "Polyphen2_HVAR_score", "Polyphen2_HVAR_rankscore",
-                                "Polyphen2_HVAR_pred"])
+    annotate_vep(in_file, out_file)
+    #, clinvar_fields=["CLNDISDB", "CLNDISDBINCL", "CLNDN", "CLNSIG", "CLNREVSTAT"])
+    """,dbNSFP_fields=["MutationAssessor_score", "MutationAssessor_pred", "SIFT_score", "SIFT_pred",
+                                "FATHMM_score", "FATHMM_pred", "Polyphen2_HDIV_score",
+                                "Polyphen2_HDIV_pred", "Polyphen2_HVAR_score",
+                                "Polyphen2_HVAR_pred"])"""
