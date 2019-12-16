@@ -14,6 +14,7 @@ import os
 from os.path import dirname
 from os.path import abspath
 import time
+import io
 import numpy as np
 
 
@@ -79,6 +80,8 @@ def compute_hgvs_id(vcf_dataframe, allele_separator="&"):
         vcf_dataframe["hgvsc_id"] = list(map(lambda z: allele_separator.join(z), list(
             map(lambda x: list(map(lambda y: ":".join(list(y)), zip(x[0], x[1]))),
                 list(zip(transcript, rna_position))))))
+    else:
+        return vcf_dataframe
     vcf_header = vcf_header[:format_index] + ["hgvsc_id"] + vcf_header[format_index:]
     vcf_dataframe = vcf_dataframe[vcf_header]
     return vcf_dataframe
@@ -314,14 +317,13 @@ def add_dbsnp_fields(input_dataframe, path_to_dbsnp, dbsnp_multialt_fields=[], d
 
 
 def add_dbnsfp_fields(input_dataframe, path_to_dbnsfp, dbnsfp_fields=[], variant_separator="&"):
-
     with open_potential_gz(path_to_dbnsfp) as f:
         header = f.readline().decode("utf-8").lstrip("#").rstrip("\n").rstrip("\r").split("\t")
     extended_dbnsfp_fields = dbnsfp_fields + ["Ensembl_transcriptid", "HGVSc_snpEff", "HGVSc_VEP"]
 
-    #def pick_head(h):
+    # def pick_head(h):
     #    print(h + " in " + str(header.index(h)))
-    #for dbsnp_field in extended_dbnsfp_fields:
+    # for dbsnp_field in extended_dbnsfp_fields:
     #    pick_head(dbsnp_field)
 
     import tabix
@@ -334,7 +336,9 @@ def add_dbnsfp_fields(input_dataframe, path_to_dbnsfp, dbnsfp_fields=[], variant
                 dbnsfp.query(str(x["CHROM"]).replace("chr", ""), int(x["POS"]) - 1, int(x["POS"])),
                 columns=header)
             current_row = current_dbnsfp_dataframe[
-                (current_dbnsfp_dataframe["pos(1-based)"] == x["POS"]) & (current_dbnsfp_dataframe["ref"] == x["REF"]) & (current_dbnsfp_dataframe["alt"] == x["ALT"])]
+                (current_dbnsfp_dataframe["pos(1-based)"] == x["POS"]) & (
+                        current_dbnsfp_dataframe["ref"] == x["REF"]) & (
+                        current_dbnsfp_dataframe["alt"] == x["ALT"])]
             if current_row.shape[0] == 0:
                 raise Exception("Current row is not in the database")
         except:
@@ -342,30 +346,39 @@ def add_dbnsfp_fields(input_dataframe, path_to_dbnsfp, dbnsfp_fields=[], variant
             for field in dbnsfp_fields:
                 returned_values.append(variant_separator.join(["."] * len(x["hgvsc_id"].split(variant_separator))))
             return pd.Series(returned_values)
-        current_dataframe = pd.DataFrame(_transpose(list(map(lambda x: x.split(";"), list(current_row[extended_dbnsfp_fields].values)[0]))), columns = extended_dbnsfp_fields)
-        current_dataframe["vep_ids"] = list(map(lambda y: ":".join(y),list(zip(current_dataframe["Ensembl_transcriptid"].tolist(), current_dataframe["HGVSc_VEP"].tolist()))))
-        current_dataframe["snpeff_ids"] = list(map(lambda y: ":".join(y),list(zip(current_dataframe["Ensembl_transcriptid"].tolist(), current_dataframe["HGVSc_snpEff"].tolist()))))
+        current_dataframe = pd.DataFrame(
+            _transpose(list(map(lambda x: x.split(";"), list(current_row[extended_dbnsfp_fields].values)[0]))),
+            columns=extended_dbnsfp_fields)
+        current_dataframe["vep_ids"] = list(map(lambda y: ":".join(y), list(
+            zip(current_dataframe["Ensembl_transcriptid"].tolist(), current_dataframe["HGVSc_VEP"].tolist()))))
+        current_dataframe["snpeff_ids"] = list(map(lambda y: ":".join(y), list(
+            zip(current_dataframe["Ensembl_transcriptid"].tolist(), current_dataframe["HGVSc_snpEff"].tolist()))))
 
         returned_values = []
         for field in dbnsfp_fields:
             returned_values_current_field = []
             for value_to_check in x["hgvsc_id"].split("&"):
                 try:
-                    returned_values_current_field.append(current_dataframe[(current_dataframe["snpeff_ids"] == value_to_check) | (current_dataframe["vep_ids"] == value_to_check)][field].iloc[0])
+                    returned_values_current_field.append(current_dataframe[
+                                                             (current_dataframe["snpeff_ids"] == value_to_check) | (
+                                                                     current_dataframe[
+                                                                         "vep_ids"] == value_to_check)][field].iloc[
+                                                             0])
                 except:
                     returned_values_current_field.append(".")
             returned_values.append(variant_separator.join(returned_values_current_field))
         return pd.Series(returned_values)
 
-    input_dataframe[dbnsfp_fields] = pd.DataFrame(input_dataframe[["CHROM", "POS", "REF", "ALT", "Allele", "hgvsc_id"]].apply(get_columns, axis=1))
+    input_dataframe[dbnsfp_fields] = pd.DataFrame(
+        input_dataframe[["CHROM", "POS", "REF", "ALT", "Allele", "hgvsc_id"]].apply(get_columns, axis=1))
 
+    # pd.DataFrame(list(current_values.apply(get_columns, axis=1).values), columns=dbnsfp_fields)
 
-    #pd.DataFrame(list(current_values.apply(get_columns, axis=1).values), columns=dbnsfp_fields)
-
-    #input_dataframe = pd.concat([input_dataframe, pd.DataFrame(list(current_values.apply(get_columns, axis=1).values),
+    # input_dataframe = pd.concat([input_dataframe, pd.DataFrame(list(current_values.apply(get_columns, axis=1).values),
     #                                                           columns=dbnsfp_fields)],
     #                            axis=1)
     return input_dataframe
+
 
 def add_clinvar_fields(input_dataframe, path_to_clinvar, clinvar_fields=[], variant_separator="&"):
     if len(clinvar_fields) == 0:
@@ -377,44 +390,136 @@ def add_clinvar_fields(input_dataframe, path_to_clinvar, clinvar_fields=[], vari
     def get_columns(x):
         # x is a single row of the input dataframe
         try:
-            header = ["CHROM", "POS", "ID","REF", "ALT", "QUAL", "FILTER", "INFO"]
+            header = ["CHROM", "POS", "ID", "REF", "ALT", "QUAL", "FILTER", "INFO"]
             current_clinvar_dataframe = pd.DataFrame(
                 clinvar.query(str(x["CHROM"]).replace("chr", ""), int(x["POS"]) - 1, int(x["POS"])), columns=header)
             current_row = current_clinvar_dataframe[
-                (current_clinvar_dataframe["POS"] == x["POS"]) & (current_clinvar_dataframe["REF"] == x["REF"]) & (current_clinvar_dataframe["ALT"] == x["ALT"])]
+                (current_clinvar_dataframe["POS"] == x["POS"]) & (current_clinvar_dataframe["ALT"] == x["ALT"])]
             if current_row.shape[0] == 0:
                 raise Exception("Current row is not in the database")
         except:
-            return pd.Series(["."] * (len(clinvar_fields) + 1))
+            return pd.Series(["."] * len(clinvar_fields))
 
-        returned_values = [current_row["ID"].iloc[0]]
+        returned_values = []
         info_field = current_row["INFO"].iloc[0]
         clinvar_dictionary = dict(list(map(lambda y: (y.split("=")[0], y.split("=")[1]), info_field.split(";"))))
         for field in clinvar_fields:
-            try:
-                returned_values.append(clinvar_dictionary[field])
-            except:
-                returned_values.append(".")
+            if field == "CLINVAR_ID":
+                returned_values.append(current_row["ID"].iloc[0])
+            else:
+                try:
+                    returned_values.append(clinvar_dictionary[field])
+                except:
+                    returned_values.append(".")
         return pd.Series(returned_values)
 
-    header_clinvar = ["CLINVAR_ID"] + clinvar_fields
-    input_dataframe[header_clinvar] = pd.DataFrame(input_dataframe[["CHROM", "POS", "REF", "ALT"]].apply(get_columns, axis=1))
+    input_dataframe[clinvar_fields] = pd.DataFrame(
+        input_dataframe[["CHROM", "POS", "ALT"]].apply(get_columns, axis=1))
 
     return input_dataframe
 
+
+def add_cosmic_vcf_fields(input_dataframe, path_to_cosmic, cosmic_fields=[], variant_separator="&",
+                          internal_separator="|"):
+    if len(cosmic_fields) == 0:
+        return input_dataframe
+
+    vcf_header = ["CHROM", "POS", "ID", "REF", "ALT", "QUAL", "FILTER", "INFO"]
+
+    cosmic_input_fields = [x[0] for x in cosmic_fields]
+    cosmic_output_fields = [x[1] for x in cosmic_fields]
+
+    import tabix
+    cosmic = tabix.open(path_to_cosmic)
+
+    def get_columns(x):
+        # x is a single row of the input dataframe
+        try:
+            current_cosmic_dataframe = pd.DataFrame(
+                cosmic.query(str(x["CHROM"]).replace("chr", ""), int(x["POS"]) - 1, int(x["POS"])), columns=vcf_header)
+            current_row = current_cosmic_dataframe[
+                (current_cosmic_dataframe["POS"] == x["POS"]) & (current_cosmic_dataframe["ALT"] == x["ALT"])]
+            if current_row.shape[0] == 0:
+                raise Exception("Current row is not in the database")
+        except:
+            return pd.Series(["."] * len(cosmic_input_fields))
+
+        returned_values = []
+        info_field_list = list(current_row["INFO"])
+        cosmic_dictionaries = list(map(lambda w: dict(list(
+            map(lambda y: (y.split("=")[0], y.split("=")[1]) if len(y.split("=")) == 2 else (y.split("=")[0], "true"),
+                w.split(";")))), info_field_list))
+        for field in cosmic_input_fields:
+            def get_field(current_dictionary):
+                if field == "COSMIC_ID":
+                    return current_row["ID"].iloc[0]
+                else:
+                    try:
+                        return current_dictionary[field]
+                    except:
+                        return "."
+
+            returned_values.append(internal_separator.join(list(map(get_field, cosmic_dictionaries))))
+        return pd.Series(returned_values)
+
+    input_dataframe[cosmic_output_fields] = pd.DataFrame(
+        input_dataframe[["CHROM", "POS", "ALT"]].apply(get_columns, axis=1))
+    return input_dataframe
+
+
+def add_cosmic_indexed_fields(input_dataframe, path_to_cosmic, cosmic_fields=[], cosmic_header=None,
+                              variant_separator="&", internal_separator="|"):
+    if len(cosmic_fields) == 0:
+        return input_dataframe
+    if cosmic_header is None:
+        cosmic_header = ["CHROM", "POS", "ID", "REF", "ALT", "QUAL", "FILTER", "INFO"]
+
+    cosmic_input_fields = [x[0] for x in cosmic_fields]
+    cosmic_output_fields = [x[1] for x in cosmic_fields]
+
+    import tabix
+    cosmic = tabix.open(path_to_cosmic)
+
+    def get_columns(x):
+        # x is a single row of the input dataframe
+        try:
+            current_cosmic_dataframe = pd.DataFrame(
+                cosmic.query(str(x["CHROM"]).replace("chr", ""), int(x["POS"]) - 1, int(x["POS"])),
+                columns=cosmic_header)
+            current_row = current_cosmic_dataframe[
+                (current_cosmic_dataframe["POS"] == x["POS"]) & (current_cosmic_dataframe["ALT"] == x["ALT"])]
+            if current_row.shape[0] == 0:
+                raise Exception("Current row is not in the database")
+        except:
+            return pd.Series(["."] * len(cosmic_input_fields))
+
+        returned_values = []
+        for field in cosmic_input_fields:
+            returned_values.append(internal_separator.join(list(current_cosmic_dataframe[field])))
+        return pd.Series(returned_values)
+
+    input_dataframe[cosmic_output_fields] = pd.DataFrame(
+        input_dataframe[["CHROM", "POS", "ALT"]].apply(get_columns, axis=1))
+    return input_dataframe
+
+
 def _transpose(l):
     return list(map(list, zip(*l)))
+
 
 def treat_chunk(chunk, vcf_header, ann_header,
                 input_additional_multifields=None,
                 vep_fields=None,
                 snpeff_fields=None,
-                clinvar_prefix=None,
                 clinvar_fields=None,
                 dbNSFP_fields=None,
                 dbSNP_multiallelic_fields=None,
                 dbSNP_unique_fields=None,
-                dbSNP_boolean_fields=None):
+                dbSNP_boolean_fields=None,
+                cosmic_coding_mut_fields=None,
+                cosmic_non_coding_vars_fields=None,
+                cosmic_mutant_census_fields=None,
+                renamings=None):
     if input_additional_multifields is None:
         input_additional_multifields = ["platformnames", "datasetnames", "callsetnames", "callable", "filt",
                                         "datasetsmissingcall"]
@@ -428,9 +533,7 @@ def treat_chunk(chunk, vcf_header, ann_header,
                          "Feature_ID", "Transcript_BioType", "Rank", "HGVS.c", "HGVS.p", "cDNA.pos/cDNA.length",
                          "CDS.pos/CDS.length", "AA.pos/AA.length", "Distance", "ERRORS/WARNINGS/INFO"]
     if clinvar_fields is None:
-        clinvar_fields = ["CLNDISDB", "CLNDISDBINCL", "CLNDN", "CLNSIG", "CLNREVSTAT"]
-    if clinvar_prefix is None:
-        clinvar_prefix = "ClinVar_ID"
+        clinvar_fields = ["CLINVAR_ID", "CLNDISDB", "CLNDISDBINCL", "CLNDN", "CLNSIG", "CLNREVSTAT"]
     if dbNSFP_fields is None:
         """
         dbNSFP_fields = ["MutationAssessor_score", "MutationAssessor_pred", "SIFT_score", "SIFT_pred",
@@ -447,6 +550,18 @@ def treat_chunk(chunk, vcf_header, ann_header,
         dbSNP_unique_fields = ["SAO", "RS"]
     if dbSNP_boolean_fields is None:
         dbSNP_boolean_fields = ["ASP"]
+    if cosmic_coding_mut_fields is None:
+        cosmic_coding_mut_fields = ["COSMIC_ID", "LEGACY_ID", "GENE", "CDS"]
+    if cosmic_non_coding_vars_fields is None:
+        cosmic_non_coding_vars_fields = ["COSMIC_ID", "LEGACY_ID", "GENE", "SNP"]
+    if cosmic_mutant_census_fields is None:
+        cosmic_mutant_census_fields = ["Primary histology"]
+    if renamings is None:
+        renamings = {"cosmic_coding_mut_fields": {"GENE": "COSMIC_CODING_MUT_GENE", "COSMIC_ID": "COSMIC_ID_MUT",
+                                                  "LEGACY_ID": "LEGACY_ID_MUT"},
+                     "cosmic_non_coding_vars_fields": {"GENE": "COSMIC_NON_CODING_VARS_GENE",
+                                                       "COSMIC_ID": "COSMIC_ID_NON_MUT",
+                                                       "LEGACY_ID": "LEGACY_ID_NON_MUT"}}
 
     format_index = vcf_header.index("FORMAT")
     vcf_fields_header = vcf_header[:format_index]
@@ -458,7 +573,10 @@ def treat_chunk(chunk, vcf_header, ann_header,
                                        columns=vcf_header)
     vcf_dataframe_with_info = split_info(input_vcf_dataframe)
 
-    vcf_dataframe_with_info_ann = split_ann(vcf_dataframe_with_info, ann_header)
+    if not ann_header is None:
+        vcf_dataframe_with_info_ann = split_ann(vcf_dataframe_with_info, ann_header)
+    else:
+        return vcf_dataframe_with_info
 
     vcf_dataframe_with_info_corrected = clean_dataframe_column(vcf_dataframe_with_info_ann,
                                                                cols=input_additional_multifields,
@@ -468,21 +586,21 @@ def treat_chunk(chunk, vcf_header, ann_header,
                                                                cols=vep_fields + snpeff_fields,
                                                                old_allele_sep=",", new_allele_sep="&",
                                                                old_internal_sep="&", new_internal_sep="|")
-    #vcf_dataframe_with_snpsift_corrected = collapse_dataframe_column(vcf_dataframe_with_info_corrected,
+    # vcf_dataframe_with_snpsift_corrected = collapse_dataframe_column(vcf_dataframe_with_info_corrected,
     #                                                             single_cols=clinvar_fields,
     #                                                             multiple_cols=[], external_sep="&",
     #                                                             old_internal_sep=",", new_internal_sep="|")
-    #clinvar_vep_result = [clinvar_prefix] + [clinvar_prefix + "_" + x for x in clinvar_fields]
-    #vcf_dataframe_with_vep_corrected = collapse_dataframe_column(vcf_dataframe_with_snpsift_corrected,
+    # clinvar_vep_result = [clinvar_prefix] + [clinvar_prefix + "_" + x for x in clinvar_fields]
+    # vcf_dataframe_with_vep_corrected = collapse_dataframe_column(vcf_dataframe_with_snpsift_corrected,
     #                                                             single_cols=clinvar_vep_result,
     #                                                             multiple_cols=dbNSFP_fields, external_sep=",",
     #                                                             old_internal_sep="&", new_internal_sep="&")
-    #vcf_dataframe_with_vep_corrected = clean_dataframe_column(vcf_dataframe_with_vep_corrected,
+    # vcf_dataframe_with_vep_corrected = clean_dataframe_column(vcf_dataframe_with_vep_corrected,
     #                                                          cols=clinvar_vep_result,
     #                                                          old_allele_sep=",", new_allele_sep="&",
     #                                                          old_internal_sep="&", new_internal_sep="|")
-    #dbNSFP_snpsift_result = ["dbNSFP_" + x for x in dbNSFP_fields]
-    #vcf_dataframe_with_splitted_cols = split_dataframe_column(vcf_dataframe_with_vep_corrected,
+    # dbNSFP_snpsift_result = ["dbNSFP_" + x for x in dbNSFP_fields]
+    # vcf_dataframe_with_splitted_cols = split_dataframe_column(vcf_dataframe_with_vep_corrected,
     #                                                          cols=dbNSFP_snpsift_result, old_internal_sep=",",
     #                                                          new_internal_sep="&", reference_column="Allele",
     #                                                          reference_separator="&")
@@ -529,9 +647,46 @@ def treat_chunk(chunk, vcf_header, ann_header,
     vcf_dataframe_with_dbnsfp = add_dbnsfp_fields(vcf_dataframe_with_dbsnp, path_to_dbNSFP, dbnsfp_fields=dbNSFP_fields)
 
     path_to_clinvar = module_path + "/data/cache/clinvar/clinvar.vcf.gz"
-    vcf_dataframe_with_clinvar = add_clinvar_fields(vcf_dataframe_with_dbnsfp, path_to_clinvar, clinvar_fields=clinvar_fields)
+    vcf_dataframe_with_clinvar = add_clinvar_fields(vcf_dataframe_with_dbnsfp, path_to_clinvar,
+                                                    clinvar_fields=clinvar_fields)
 
-    return vcf_dataframe_with_clinvar
+    if "cosmic_coding_mut_fields" in renamings.keys():
+        cosmic_coding_mut_fields = [(x, x) if (not x in renamings["cosmic_coding_mut_fields"].keys()) else (
+        x, renamings["cosmic_coding_mut_fields"][x]) for x in cosmic_coding_mut_fields]
+    else:
+        cosmic_coding_mut_fields = [(x, x) for x in cosmic_coding_mut_fields]
+    path_to_cosmic_coding_mut = module_path + "/data/cache/cosmic/CosmicCodingMuts.vcf.gz"
+    vcf_dataframe_with_cosmic_coding_mut = add_cosmic_vcf_fields(vcf_dataframe_with_clinvar,
+                                                                 path_to_cosmic_coding_mut,
+                                                                 cosmic_fields=cosmic_coding_mut_fields)
+    if "cosmic_non_coding_vars_fields" in renamings.keys():
+        cosmic_non_coding_vars_fields = [(x, x) if (not x in renamings["cosmic_non_coding_vars_fields"].keys()) else (
+        x, renamings["cosmic_non_coding_vars_fields"][x]) for x in cosmic_non_coding_vars_fields]
+    else:
+        cosmic_non_coding_vars_fields = [(x, x) for x in cosmic_non_coding_vars_fields]
+    path_to_cosmic_non_coding_vars = module_path + "/data/cache/cosmic/CosmicNonCodingVariants.vcf.gz"
+    vcf_dataframe_with_cosmic_non_coding_mut = add_cosmic_vcf_fields(vcf_dataframe_with_cosmic_coding_mut,
+                                                                     path_to_cosmic_non_coding_vars,
+                                                                     cosmic_fields=cosmic_non_coding_vars_fields)
+
+    if "cosmic_mutant_census_fields" in renamings.keys():
+        cosmic_mutant_census_fields = [(x, x) if (not x in renamings["cosmic_mutant_census_fields"].keys()) else (
+        x, renamings["cosmic_mutant_census_fields"][x]) for x in cosmic_mutant_census_fields]
+    else:
+        cosmic_mutant_census_fields = [(x, x) for x in cosmic_mutant_census_fields]
+    path_to_cosmic_mutant_census = module_path + "/data/cache/cosmic/CosmicMutantExportCensus.tsv.gz"
+    with open_potential_gz(path_to_cosmic_mutant_census) as mutant_cens:
+        mutant_header = mutant_cens.readline().decode("utf-8").lstrip("#").rstrip("\n").split("\t")
+    vcf_dataframe_with_cosmic_mutant_census = add_cosmic_indexed_fields(vcf_dataframe_with_cosmic_non_coding_mut,
+                                                                        path_to_cosmic_mutant_census,
+                                                                        cosmic_fields=cosmic_mutant_census_fields,
+                                                                        cosmic_header=mutant_header)
+    return vcf_dataframe_with_cosmic_mutant_census
+
+
+def normalize_stream_to_stream(input_stream):
+    p = Popen(["bash", "-c", "bcftools norm -m -both"], stdin=input_stream, stdout=PIPE)
+    return p.stdout
 
 
 def normalize_vcf_to_stream(path_to_vcf):
@@ -539,19 +694,14 @@ def normalize_vcf_to_stream(path_to_vcf):
     return p.stdout
 
 
-def from_vcf_to_maf(input_vcf, output_maf, chunk_size=20):
-    """Converts vcf to maf.
-    Parameters
-    ----------
-    input_vcf: path to the input vcf (can be gzipped) but the format is not checked
-    output_maf: path where the MAF should be stored
-    """
-
-    with normalize_vcf_to_stream(input_vcf) as file:
+def from_vcf_stream_to_maf_stream(input_stream, output_stream, chunk_size=20):
+    with normalize_stream_to_stream(input_stream) as input_stream:
         # with open_potential_gz(input_vcf) as file:
 
-        for line in file:
+        ann_header = None
+        for line in input_stream:
             line_string = line.decode("utf-8")
+            print(line)
             if line_string.startswith("##INFO=<ID=ANN"):
 
                 def detect_description(part):
@@ -574,7 +724,7 @@ def from_vcf_to_maf(input_vcf, output_maf, chunk_size=20):
         mp_pool = multiprocessing.Pool()
         results = []
 
-        for chunk in iter(lambda: list(islice(file, chunk_size)), []):
+        for chunk in iter(lambda: list(islice(input_stream, chunk_size)), []):
             results.append(mp_pool.apply_async(treat_chunk, (chunk, vcf_header, ann_header)))
 
         results = list(map(lambda x: x.get(), results))
@@ -583,23 +733,20 @@ def from_vcf_to_maf(input_vcf, output_maf, chunk_size=20):
         common_fields = [x for x in all_headers if not x in individual_headers]
         new_order = common_fields + individual_headers
         big_dataframe = big_dataframe[new_order]
-        big_dataframe.to_csv(output_maf, sep='\t', na_rep='.', index=False)
+        big_dataframe.to_csv(output_stream, sep='\t', na_rep='.', index=False)
 
 
-def _from_json_to_command(config):
-    """Annotates the input_stream to the output_stream following the config
-    directives.
+def from_vcf_to_maf(input_vcf, output_maf, chunk_size=20):
+    """Converts vcf to maf.
     Parameters
     ----------
-    input_stream : TextIOBase
-        Input stream.
-    output_stream : TextIOBase
-        Output stream.
-    config : dict
-        Dictionary describing the annotation step to be performed
+    input_vcf: String
+        Path to the input vcf (can be gzipped) but the format is not checked
+    output_maf: String
+        Path where the MAF should be stored
     """
-    return "java -Xmx64g -jar $(readlink -f $(which SnpSift.jar)) annotate -id -noInfo " \
-           "/home/ramela/Downloads/example_vcfs/databases/00-All.vcf.gz /dev/stdin -a"
+    with open_potential_gz(input_vcf) as input_stream, open(output_maf, "w") as output_stream:
+        from_vcf_stream_to_maf_stream(input_stream, output_stream)
 
 
 def _validate_with_default(validator_class):
@@ -625,54 +772,83 @@ def _check_json_file(input_json, json_schema):
     DefaultValidatingDraft7Validator(json_schema).validate(input_json)
 
 
-def annotate(input_file, output_file, json_file):
-    """Annotates the input_file to the output_file following the configuration
+def annotate_stream_to_stream(input_stream, output_stream, json_file):
+    """Annotates the input_stream to the output_stream following the configuration
     present in json_file.
     Parameters
     ----------
     input_stream : TextIOBase
         Input stream.
     output_stream : TextIOBase
-        Input stream.
+        Output stream.
     config : dict
-        Dictionary containing the necessary information to perform the
-        annotation
+        Dictionary containing the necessary information to perform the annotation
     """
+
+    module_path = dirname(dirname(abspath(__file__)))
 
     with open(json_file, 'r') as f:
         config_json = json.load(f)
 
-    with open("/home/ramela/git/PySnpEff/pysnpeff/config/schema.json") as f:
+    with open(module_path + "/config/schema.json") as f:
         schema_json = json.load(f)
 
     _check_json_file(config_json, schema_json)
 
-    p = Popen(["bash", "-c", "zcat " + input_file], stdout=PIPE)
-    out_stream = p.stdout
-    for i in range(len(config_json["steps"])):
-        command = ["bash", "-c", _from_json_to_command(config_json["steps"][i])]
-        in_stream = out_stream
-        p = Popen(command, stdin=in_stream, stdout=PIPE)
-        out_stream = p.stdout
-
-    in_stream = out_stream
-    out_stream = open(output_file, "w")
-    p = Popen(["bash", "-c", "bgzip"], stdin=in_stream, stdout=out_stream)
-    null_out = open(os.devnull, 'w')
-    p.wait()
-    p = Popen(["bash", "-c", "tabix", "-f", output_file], stdout=null_out)
-    p.wait()
+    if len(config_json["prediction_tool"]) > 0:
+        if "vep" in config_json["prediction_tool"]:
+            from pyannotation.pyvep import annotate_stream_vep
+            p = annotate_stream_vep(input_stream, PIPE)
+            from_vcf_stream_to_maf_stream(p.stdout, output_stream)
+        elif "snpeff" in config_json["prediction_tool"]:
+            from pyannotation.pysnpeff import annotate_stream_snpeff
+            p = annotate_stream_snpeff(input_stream, PIPE)
+            from_vcf_stream_to_maf_stream(p.stdout, output_stream)
+    else:
+        from_vcf_stream_to_maf_stream(input_stream, output_stream)
 
 
-def main(in_file, out_file, json_file):
-    return annotate(in_file, out_file, json_file)
+def annotate(input_file, output_file, json_file):
+    """Annotates the input_file to the output_file following the configuration
+    present in json_file.
+    Parameters
+    ----------
+    input_stream : String
+        Path to the input file.
+    output_stream : String
+        Path to the output file.
+    config : dict
+        Dictionary containing the necessary information to perform the annotation
+    """
+
+    module_path = dirname(dirname(abspath(__file__)))
+
+    with open(json_file, 'r') as f:
+        config_json = json.load(f)
+
+    with open(module_path + "/config/schema.json") as f:
+        schema_json = json.load(f)
+
+    _check_json_file(config_json, schema_json)
+
+    with open(output_file, "w") as output_stream:
+        if is_gz_file(input_file):
+            p = Popen(["bash", "zcat", input_file], stdout=PIPE)
+            input_stream = p.stdout
+        else:
+            p = Popen(["bash", "cat", input_file], stdout=PIPE)
+            input_stream = p.stdout
+        annotate_stream_to_stream(input_stream, output_stream, json_file)
+
+
+def main(input_file, output_file, json_file):
+    return annotate(input_file, output_file, json_file)
 
 
 if __name__ == "__main__":
-    in_file = sys.argv[1]
-    out_file = sys.argv[2]
-    # json_file = sys.argv[3]
+    input_file = sys.argv[1]
+    output_file = sys.argv[2]
+    json_file = sys.argv[3]
     start_time = time.time()
-    from_vcf_to_maf(in_file, out_file)
+    main(input_file, output_file, json_file)
     print("Ellaspsed time: " + str(time.time() - start_time))
-    # main(in_file, out_file, json_file)
