@@ -956,16 +956,22 @@
           }
         }
       }
+    },
+    "annotation_tools": {
+      "type": "string",
+      "enum": [
+        "vep",
+        "snpeff"
+      ]
     }
   },
   "properties": {
-    "vep_prediction": {
-      "type": "boolean",
-      "default": false
-    },
-    "snpeff_prediction": {
-      "type": "boolean",
-      "default": false
+    "prediction_tool": {
+      "type": "array",
+      "items": {
+        "$ref": "#/definitions/annotation_tools"
+      },
+      "maxItems": 1
     },
     "notation_priorization": {
       "type": "string",

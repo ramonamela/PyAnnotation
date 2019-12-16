@@ -1,0 +1,24 @@
+{
+  "prediction_tool": [
+    "snpeff"
+  ],
+  "all_renamings": [
+    {
+      "database": "clinvar",
+      "database_renamings": [
+        {
+          "original_name": "AF_ESP",
+          "new_name": "random_name"
+        }
+      ]
+    }
+  ],
+  "annotated_fields": [
+    {
+      "database": "clinvar",
+      "fields": [
+        "AF_ESP"
+      ]
+    }
+  ]
+}
