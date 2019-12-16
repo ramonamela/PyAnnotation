@@ -153,15 +153,59 @@ download_common_files() {
 	if [ ! -d "${base_path_dbSNP}" ]; then
 		mkdir -p "${base_path_dbSNP}"
 	fi
-	files_to_download=( "All_20180418.vcf.gz" "All_20180418.vcf.gz.md5" "All_20180418.vcf.gz.tbi" )
+	files_to_download_dbsnp=( "All_20180418.vcf.gz" "All_20180418.vcf.gz.md5" "All_20180418.vcf.gz.tbi" )
 	base_ftp_path="ftp://ftp.ncbi.nlm.nih.gov/snp/organisms/human_9606_b151_GRCh38p7/VCF/"	
-	for i in "${files_to_download[@]}"; do
-		pushd ${base_path_dbSNP}
-		if [ ! -f "${base_path_dbSNP}${files_to_download}" ]; then
+	for i in "${files_to_download_dbsnp[@]}"; do
+		if [ ! -f "${base_path_dbSNP}${i}" ]; then
+			pushd ${base_path_dbSNP}
 			wget "${base_ftp_path}${i}"
+			popd
 		fi
-		popd
 	done
+	## COSMIC ##
+	base_path_cosmic="${BASE_DIR}/data/cache/cosmic/"
+  if [ ! -d "${base_path_cosmic}" ]; then
+    mkdir -p "${base_path_cosmic}"
+  fi
+	vcf_files_to_download_cosmic=( "CosmicNonCodingVariants.vcf.gz" "CosmicCodingMuts.vcf.gz" )
+	files_to_download_cosmic=( "CosmicSample.tsv.gz" "CosmicCompleteTargetedScreensMutantExport.tsv.gz" "CosmicGenomeScreensMutantExport.tsv.gz" "CosmicMutantExport.tsv.gz" "CosmicMutantExportCensus.tsv.gz" "CosmicNCV.tsv.gz" "CosmicCompleteGeneExpression.tsv.gz" "CosmicResistanceMutations.tsv.gz" )
+	files_to_download_cosmic=( "CosmicMutantExportCensus.tsv.gz" )
+	cosmic_credentials=$(echo "${COSMIC_USER}:${COSMIC_PASS}" | base64)
+	base_url="https://cancer.sanger.ac.uk/cosmic/file_download/GRCh38/cosmic/v90/"
+	for i in "${files_to_download_cosmic[@]}"; do
+    if [ ! -f "${base_path_cosmic}${i}" ]; then
+			pushd ${base_path_cosmic}
+			response=$(curl -H "Authorization: Basic ${cosmic_credentials}" ${base_url}${i})
+			curl "${response:8:-2}" --output "${i}"
+			popd
+    fi
+		if [ ! -f "${base_path_cosmic}${i}.tbi" ]; then
+			pushd ${base_path_cosmic}
+			python ${BASE_DIR}/useful_commands/transform_cosmic_mutant_export_census.py "${base_path_cosmic}${i}" "${base_path_cosmic}${i::-7}Indexable.tsv"
+			bgzip "${base_path_cosmic}${i::-7}Indexable.tsv"
+			mv "${base_path_cosmic}${i::-7}Indexable.tsv.gz" "${base_path_cosmic}${i}"
+			tabix -s 1 -b 2 -e 2 "${base_path_cosmic}${i}"
+			popd
+		fi
+  done
+  for i in "${vcf_files_to_download_cosmic[@]}"; do
+    if [ ! -f "${base_path_cosmic}${i}" ]; then
+			pushd ${base_path_cosmic}
+			response=$(curl -H "Authorization: Basic ${cosmic_credentials}" ${base_url}VCF/${i})
+			curl "${response:8:-2}" --output "${i}"
+			gunzip ${i}
+			bgzip ${i::-3}
+			tabix -p vcf ${i}
+			popd
+    fi
+		if [ ! -f "${base_path_cosmic}${i}.tbi" ]; then
+			pushd ${base_path_cosmic}
+			gunzip ${i}
+      bgzip ${i::-3}
+      tabix -p vcf ${i}
+      popd
+		fi
+  done
 }
 
 #
