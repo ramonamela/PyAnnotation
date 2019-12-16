@@ -20,17 +20,20 @@ BASE_DIR="${SCRIPT_DIR}/../"
 
 install_suse_dependencies() {
   sudo zypper update
-  sudo zypper -y --non-interactive --no-recommends install libmysqlclient-dev libgd-dev bioperl bcftools python3 python3-pip
+  sudo zypper -y --non-interactive --no-recommends install libmysqlclient-dev libgd-dev bioperl bcftools python3 python3-pip python3-dev unzip perl perl-base libipc-run-perl libxml-dom-perl libxml-dom-xpath-perl perl-DBD-mysql
 }
 
 install_ubuntu_dependencies() {
   sudo apt-get update
-  sudo apt-get -y --no-install-recommends --no-install-recommends  install libmysqlclient-dev libgd-dev bioperl bcftools python3 python3-pip
+  sudo apt-get -y --no-install-recommends --no-install-recommends  install libmysqlclient-dev libgd-dev bioperl bcftools python3 python3-pip python3-dev unzip perl perl-base libipc-run-perl libxml-dom-perl libxml-dom-xpath-perl libdbd-mysql-perl
 }
 
 install_general_dependencies() {
   dist=$(cat /etc/os-release | grep ID_LIKE | tr "=" "\t" | awk '{ print $2 }' | tr -d "\"")
   case "${dist}" in
+		debian)
+			install_ubuntu_dependencies
+			;;
     ubuntu)
       install_ubuntu_dependencies
       ;;
@@ -48,9 +51,12 @@ install_general_dependencies() {
     sudo make
     echo 'export PATH=$PATH:/opt/htslib-1.9' >> ~/.bashrc
     echo 'export HTSLIB_DIR=/opt/htslib-1.9/' >> ~/.bashrc
+		export PATH=$PATH:/opt/htslib-1.9
+		export HTSLIB_DIR=/opt/htslib-1.9/
     source ~/.bashrc
     popd
   fi
+	pip3 install setuptools wheel
 	pip3 install pytabix nose
 }
 
@@ -74,12 +80,14 @@ install_vep() {
   cpanm Bio::DB::HTS::Tabix
   cpanm Bio::SeqFeature::Lite
   cpanm DBI
-  cpanm DBD::mysql
+  #cpanm DBD::mysql
   cpanm Archive::Zip 
   echo "export PATH=\${PATH}:${install_dir}" >> ~/.bashrc
   echo "export PERL5LIB=${install_dir}/:${install_dir}/modules/:\${PERL5LIB}" >> ~/.bashrc
+	export PERL5LIB=${install_dir}/:${install_dir}/modules/:${PERL5LIB}
+	export PATH=${PATH}:${install_dir}
   source ~/.bashrc
-  #perl INSTALL.pl --NO_HTSLIB --NO_UPDATE --PLUGINS dbNSFP --AUTO p
+  #perl INSTALL.pl --NO_HTSLIB --NO_UPDATE --AUTO p
   perl INSTALL.pl --NO_HTSLIB --NO_UPDATE --AUTO p --PLUGINS dbNSFP
   echo "${BASE_DIR}/data/cache/vep_data"
   mkdir -p "${BASE_DIR}/data/cache/vep_data"
@@ -124,6 +132,7 @@ main() {
   install_general_dependencies
   echo "## INSTALL ENSEMBL-VEP ##"
   install_vep ${BASE_DIR}/dependencies/ensembl-vep
+	echo "## INSTALL SNPEFF ##"
   install_snpEff ${BASE_DIR}/dependencies/snpEff
 }
 
