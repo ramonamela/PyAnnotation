@@ -20,12 +20,12 @@ BASE_DIR="${SCRIPT_DIR}/../"
 
 install_suse_dependencies() {
   sudo zypper update
-  sudo zypper -y --non-interactive --no-recommends install libmysqlclient-dev libgd-dev bioperl bcftools
+  sudo zypper -y --non-interactive --no-recommends install libmysqlclient-dev libgd-dev bioperl bcftools python3 python3-pip
 }
 
 install_ubuntu_dependencies() {
   sudo apt-get update
-  sudo apt-get -y --no-install-recommends --no-install-recommends  install libmysqlclient-dev libgd-dev bioperl bcftools
+  sudo apt-get -y --no-install-recommends --no-install-recommends  install libmysqlclient-dev libgd-dev bioperl bcftools python3 python3-pip
 }
 
 install_general_dependencies() {
@@ -51,6 +51,7 @@ install_general_dependencies() {
     source ~/.bashrc
     popd
   fi
+	pip3 install pytabix nose
 }
 
 install_vep() {
