@@ -4,3 +4,6 @@ python:
 install:
   - ./dependencies/install_dependencies.sh
   - ./useful_commands/download_cache_files.sh
+script:
+  - nosetests
+

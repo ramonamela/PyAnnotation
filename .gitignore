@@ -1,3 +1,9 @@
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
+*html
+
 # Vi files
 *swp
 *swo
@@ -13,3 +19,5 @@ dependencies/snpEff/
 dependencies/ensembl-vep
 
 __pycache__
+
+STDOUT_warnings.txt

@@ -1,6 +1,6 @@
 {
   "prediction_tool": [
-    "vep"
+    "snpeff"
   ],
   "all_renamings": [
     {
@@ -71,37 +71,19 @@
       ]
     },
     {
-      "database": "dbCOSMICCodingMutations",
-      "database_renamings": [
-        {
-          "original_name": "GENE",
-          "new_name": "dbCOSMICCoding_GENE"
-        },
-        {
-          "original_name": "CDS",
-          "new_name": "dbCOSMICCoding_CDS"
-        }
-      ]
-    },
-    {
-      "database": "dbCOSMICNonCodingVariants",
-      "database_renamings": [
-        {
-          "original_name": "GENE",
-          "new_name": "dbCOSMICNonCoding_GENE"
-        },
-        {
-          "original_name": "SNP",
-          "new_name": "dbCOSMICNonCoding_SNP"
-        }
-      ]
-    },
-    {
       "database": "dbCOSMICMutantCensus",
       "database_renamings": [
         {
           "original_name": "Primary site",
           "new_name": "PRIMARY_SITE"
+        },
+        {
+          "original_name": "Primary histology",
+          "new_name": "PRIMARY_HISTOLOGY"
+        },
+        {
+          "original_name": "Mutation somatic status",
+          "new_name": "MUTATION_STATUS"
         }
       ]
     }
@@ -110,8 +92,11 @@
     {
       "database": "dbClinVar",
       "fields": [
-        "AF_ESP",
-        "CLNDISDB"
+        "CLNDISDB",
+        "CLNDISDBINCL",
+        "CLNDN",
+        "CLNREVSTAT",
+        "CLNSIG"
       ]
     },
     {
@@ -131,13 +116,29 @@
     {
       "database": "dbCiVICClinicalEvidence",
       "fields": [
-        "variant_summary"
+        "drugs",
+        "variant_summary",
+        "disease",
+        "evidence_type",
+        "evidence_direction",
+        "evidence_level",
+        "clinical_significance",
+        "citation_id"
       ]
     },
     {
       "database": "dbNSFP",
       "fields": [
-        "HGVSc_VEP"
+        "SIFT_score",
+        "SIFT_pred",
+        "MutationAssessor_score",
+        "MutationAssessor_pred",
+        "FATHMM_score",
+        "FATHMM_pred",
+        "Polyphen2_HDIV_score",
+        "Polyphen2_HDIV_pred",
+        "Polyphen2_HVAR_score",
+        "Polyphen2_HVAR_pred"
       ]
     },
     {
@@ -152,6 +153,8 @@
     {
       "database": "dbCOSMICCodingMutations",
       "fields": [
+        "COSMIC_ID",
+        "LEGACY_ID",
         "GENE",
         "CDS"
       ]
@@ -159,6 +162,8 @@
     {
       "database": "dbCOSMICNonCodingVariants",
       "fields": [
+        "COSMIC_ID",
+        "LEGACY_ID",
         "GENE",
         "SNP"
       ]
@@ -166,7 +171,9 @@
     {
       "database": "dbCOSMICMutantCensus",
       "fields": [
-        "Primary site"
+        "Primary site",
+        "Primary histology",
+        "Mutation somatic status"
       ]
     }
   ]

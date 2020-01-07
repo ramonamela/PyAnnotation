@@ -13,7 +13,7 @@
       },
       "anyOf": [
         {
-          "$ref": "#/definitions/clinvar_renamings"
+          "$ref": "#/definitions/dbClinVar_renamings"
         },
         {
           "$ref": "#/definitions/dbNSFP_renamings"
@@ -22,13 +22,22 @@
           "$ref": "#/definitions/dbSNP_renamings"
         },
         {
-          "$ref": "#/definitions/cosmic_coding_mutations_renamings"
+          "$ref": "#/definitions/dbCOSMICCodingMutations_renamings"
         },
         {
-          "$ref": "#/definitions/cosmic_non_coding_variants_renamings"
+          "$ref": "#/definitions/dbCOSMICNonCodingVariants_renamings"
         },
         {
-          "$ref": "#/definitions/cosmic_mutation_census_renamings"
+          "$ref": "#/definitions/dbCOSMICMutantCensus_renamings"
+        },
+        {
+          "$ref": "#/definitions/dbCiVICVariantSummaries_renamings"
+        },
+        {
+          "$ref": "#/definitions/dbCiVICClinicalEvidence_renamings"
+        },
+        {
+          "$ref": "#/definitions/dbCiVICGeneSummaries_renamings"
         }
       ],
       "required": [
@@ -48,7 +57,7 @@
       },
       "anyOf": [
         {
-          "$ref": "#/definitions/clinvar_annotation"
+          "$ref": "#/definitions/dbClinVar_annotation"
         },
         {
           "$ref": "#/definitions/dbNSFP_annotation"
@@ -57,13 +66,22 @@
           "$ref": "#/definitions/dbSNP_annotation"
         },
         {
-          "$ref": "#/definitions/cosmic_coding_mutations_annotation"
+          "$ref": "#/definitions/dbCOSMICCodingMutations_annotation"
         },
         {
-          "$ref": "#/definitions/cosmic_non_coding_variants_annotation"
+          "$ref": "#/definitions/dbCOSMICNonCodingVariants_annotation"
         },
         {
-          "$ref": "#/definitions/cosmic_mutation_census_annotation"
+          "$ref": "#/definitions/dbCOSMICMutantCensus_annotation"
+        },
+        {
+          "$ref": "#/definitions/dbCiVICVariantSummaries_annotation"
+        },
+        {
+          "$ref": "#/definitions/dbCiVICClinicalEvidence_annotation"
+        },
+        {
+          "$ref": "#/definitions/dbCiVICGeneSummaries_annotation"
         }
       ],
       "required": [
@@ -87,7 +105,7 @@
       ],
       "additionalProperties": false
     },
-    "clinvar_annotation": {
+    "dbClinVar_annotation": {
       "allOf": [
         {
           "$ref": "#/definitions/annotation_common"
@@ -95,11 +113,11 @@
         {
           "properties": {
             "database": {
-              "const": "clinvar"
+              "const": "dbClinVar"
             },
             "fields": {
               "items": {
-                "$ref": "#/definitions/clinvar_fields"
+                "$ref": "#/definitions/dbClinVar_fields"
               }
             }
           }
@@ -107,7 +125,7 @@
       ]
     },
     "dbNSFP_annotation": {
-     "allOf": [
+      "allOf": [
         {
           "$ref": "#/definitions/annotation_common"
         },
@@ -126,7 +144,7 @@
       ]
     },
     "dbSNP_annotation": {
-     "allOf": [
+      "allOf": [
         {
           "$ref": "#/definitions/annotation_common"
         },
@@ -144,57 +162,114 @@
         }
       ]
     },
-    "cosmic_coding_mutations_annotation": {
-     "allOf": [
+    "dbCOSMICCodingMutations_annotation": {
+      "allOf": [
         {
           "$ref": "#/definitions/annotation_common"
         },
         {
           "properties": {
             "database": {
-              "const": "cosmic_coding_mutations"
+              "const": "dbCOSMICCodingMutations"
             },
             "fields": {
               "items": {
-                "$ref": "#/definitions/cosmic_coding_mutations_fields"
+                "$ref": "#/definitions/dbCOSMICCodingMutations_fields"
               }
             }
           }
         }
       ]
     },
-    "cosmic_non_coding_variants_annotation": {
-     "allOf": [
+    "dbCOSMICNonCodingVariants_annotation": {
+      "allOf": [
         {
           "$ref": "#/definitions/annotation_common"
         },
         {
           "properties": {
             "database": {
-              "const": "cosmic_non_coding_variants"
+              "const": "dbCOSMICNonCodingVariants"
             },
             "fields": {
               "items": {
-                "$ref": "#/definitions/cosmic_non_coding_variants_fields"
+                "$ref": "#/definitions/dbCOSMICNonCodingVariants_fields"
               }
             }
           }
         }
       ]
     },
-    "cosmic_mutation_census_annotation": {
-     "allOf": [
+    "dbCOSMICMutantCensus_annotation": {
+      "allOf": [
         {
           "$ref": "#/definitions/annotation_common"
         },
         {
           "properties": {
             "database": {
-              "const": "cosmic_mutation_census"
+              "const": "dbCOSMICMutantCensus"
             },
             "fields": {
               "items": {
-                "$ref": "#/definitions/cosmic_mutation_census_fields"
+                "$ref": "#/definitions/dbCOSMICMutantCensus_fields"
+              }
+            }
+          }
+        }
+      ]
+    },
+    "dbCiVICVariantSummaries_annotation": {
+      "allOf": [
+        {
+          "$ref": "#/definitions/annotation_common"
+        },
+        {
+          "properties": {
+            "database": {
+              "const": "dbCiVICVariantSummaries"
+            },
+            "fields": {
+              "items": {
+                "$ref": "#/definitions/dbCiVICVariantSummaries_fields"
+              }
+            }
+          }
+        }
+      ]
+    },
+    "dbCiVICClinicalEvidence_annotation": {
+      "allOf": [
+        {
+          "$ref": "#/definitions/annotation_common"
+        },
+        {
+          "properties": {
+            "database": {
+              "const": "dbCiVICClinicalEvidence"
+            },
+            "fields": {
+              "items": {
+                "$ref": "#/definitions/dbCiVICClinicalEvidence_fields"
+              }
+            }
+          }
+        }
+      ]
+    },
+    "dbCiVICGeneSummaries_annotation": {
+      "allOf": [
+        {
+          "$ref": "#/definitions/annotation_common"
+        },
+        {
+          "properties": {
+            "database": {
+              "const": "dbCiVICGeneSummaries"
+            },
+            "fields": {
+              "items": {
+                "$ref": "#/definitions/dbCiVICGeneSummaries_fields"
               }
             }
           }
@@ -215,7 +290,7 @@
         "new_name"
       ]
     },
-    "clinvar_fields": {
+    "dbClinVar_fields": {
       "type": "string",
       "enum": [
         "AF_ESP",
@@ -676,7 +751,7 @@
         "TOPMED"
       ]
     },
-    "cosmic_coding_mutations_fields": {
+    "dbCOSMICCodingMutations_fields": {
       "type": "string",
       "enum": [
         "COSMIC_ID",
@@ -690,7 +765,7 @@
         "SNP"
       ]
     },
-    "cosmic_non_coding_variants_fields": {
+    "dbCOSMICNonCodingVariants_fields": {
       "type": "string",
       "enum": [
         "COSMIC_ID",
@@ -704,7 +779,7 @@
         "SNP"
       ]
     },
-    "cosmic_mutation_census_fields": {
+    "dbCOSMICMutantCensus_fields": {
       "type": "string",
       "enum": [
         "Gene name",
@@ -747,7 +822,97 @@
         "Tier"
       ]
     },
-    "clinvar_rename": {
+    "dbCiVICVariantSummaries_fields": {
+      "type": "string",
+      "enum": [
+        "variant_id",
+        "variant_civic_url",
+        "gene",
+        "entrez_id",
+        "variant",
+        "summary",
+        "variant_groups",
+        "chromosome",
+        "start",
+        "stop",
+        "reference_bases",
+        "variant_bases",
+        "representative_transcript",
+        "ensembl_version",
+        "reference_build",
+        "chromosome2",
+        "start2",
+        "stop2",
+        "representative_transcript2",
+        "variant_types",
+        "hgvs_expressions",
+        "last_review_date",
+        "civic_variant_evidence_score",
+        "allele_registry_id",
+        "clinvar_ids",
+        "variant_aliases",
+        "assertion_ids",
+        "assertion_civic_urls"
+      ]
+    },
+    "dbCiVICClinicalEvidence_fields": {
+      "type": "string",
+      "enum": [
+        "gene",
+        "entrez_id",
+        "variant",
+        "disease",
+        "doid",
+        "phenotypes",
+        "drugs",
+        "drug_interaction_type",
+        "evidence_type",
+        "evidence_direction",
+        "evidence_level",
+        "clinical_significance",
+        "evidence_statement",
+        "citation_id",
+        "source_type",
+        "asco_abstract_id",
+        "citation",
+        "nct_ids",
+        "rating",
+        "evidence_status",
+        "evidence_id",
+        "variant_id",
+        "gene_id",
+        "chromosome",
+        "start",
+        "stop",
+        "reference_bases",
+        "variant_bases",
+        "representative_transcript",
+        "chromosome2",
+        "start2",
+        "stop2",
+        "representative_transcript2",
+        "ensembl_version",
+        "reference_build",
+        "variant_summary",
+        "variant_origin",
+        "last_review_date",
+        "evidence_civic_url",
+        "variant_civic_url",
+        "gene_civic_url"
+      ]
+    },
+    "dbCiVICGeneSummaries_fields": {
+      "type": "string",
+      "enum": [
+        "gene_id",
+        "gene_civic_url",
+        "name",
+        "entrez_id",
+        "description",
+        "last_review_date"
+      ]
+    },
+    "dbClinVar_rename": {
       "allOf": [
         {
           "$ref": "#/definitions/renaming_pair"
@@ -755,7 +920,7 @@
         {
           "properties": {
             "original_name": {
-              "$ref": "#/definitions/clinvar_fields"
+              "$ref": "#/definitions/dbClinVar_fields"
             }
           }
         }
@@ -789,105 +954,99 @@
         }
       ]
     },
-    "cosmic_coding_mutations_rename": {
+    "dbCOSMICCodingMutations_rename": {
       "allOf": [
         {
           "$ref": "#/definitions/renaming_pair"
         },
         {
           "properties": {
-            "new_name": {
+            "original_name": {
+              "$ref": "#/definitions/dbCOSMICCodingMutations_fields"
             }
           }
         }
       ]
     },
-    "cosmic_non_coding_variants_rename": {
+    "dbCOSMICNonCodingVariants_rename": {
       "allOf": [
         {
           "$ref": "#/definitions/renaming_pair"
         },
         {
           "properties": {
-            "new_name": {
-              "enum": [
-                "COSMIC_ID",
-                "GENE",
-                "STRAND",
-                "GENOMIC_ID",
-                "LEGACY_ID",
-                "CDS",
-                "AA",
-                "CNT",
-                "SNP"
-              ]
+            "original_name": {
+              "$ref": "#/definitions/dbCOSMICNonCodingVariants_fields"
             }
           }
         }
       ]
     },
-    "cosmic_mutation_census_rename": {
+    "dbCOSMICMutantCensus_rename": {
       "allOf": [
         {
           "$ref": "#/definitions/renaming_pair"
         },
         {
           "properties": {
-            "new_name": {
-              "enum": [
-                "Gene name",
-                "Accession Number",
-                "Gene CDS length",
-                "HGNC ID",
-                "Sample name",
-                "ID_sample",
-                "ID_tumour",
-                "Primary site",
-                "Site subtype 1",
-                "Site subtype 2",
-                "Site subtype 3",
-                "Primary histology",
-                "Histology subtype 1",
-                "Histology subtype 2",
-                "Histology subtype 3",
-                "Genome-wide screen",
-                "GENOMIC_MUTATION_ID",
-                "LEGACY_MUTATION_ID",
-                "MUTATION_ID",
-                "Mutation CDS",
-                "Mutation AA",
-                "Mutation Description",
-                "Mutation zygosity",
-                "LOH",
-                "GRCh",
-                "Mutation genome position",
-                "Mutation strand",
-                "SNP",
-                "Resistance Mutation",
-                "FATHMM prediction",
-                "FATHMM score",
-                "Mutation somatic status",
-                "Pubmed_PMID",
-                "ID_STUDY",
-                "Sample Type",
-                "Tumour origin",
-                "Age",
-                "Tier"
-              ]
+            "original_name": {
+              "$ref": "#/definitions/dbCOSMICMutantCensus_fields"
             }
           }
         }
       ]
     },
-    "clinvar_renamings": {
+    "dbCiVICVariantSummaries_rename": {
+      "allOf": [
+        {
+          "$ref": "#/definitions/renaming_pair"
+        },
+        {
+          "properties": {
+            "original_name": {
+              "$ref": "#/definitions/dbCiVICVariantSummaries_fields"
+            }
+          }
+        }
+      ]
+    },
+    "dbCiVICClinicalEvidence_rename": {
+      "allOf": [
+        {
+          "$ref": "#/definitions/renaming_pair"
+        },
+        {
+          "properties": {
+            "original_name": {
+              "$ref": "#/definitions/dbCiVICClinicalEvidence_fields"
+            }
+          }
+        }
+      ]
+    },
+    "dbCiVICGeneSummaries_rename": {
+      "allOf": [
+        {
+          "$ref": "#/definitions/renaming_pair"
+        },
+        {
+          "properties": {
+            "original_name": {
+              "$ref": "#/definitions/dbCiVICGeneSummaries_fields"
+            }
+          }
+        }
+      ]
+    },
+    "dbClinVar_renamings": {
       "properties": {
         "database": {
-          "const": "clinvar"
+          "const": "dbClinVar"
         },
         "database_renamings": {
           "type": "array",
           "items": {
-            "$ref": "#/definitions/clinvar_rename"
+            "$ref": "#/definitions/dbClinVar_rename"
           }
         }
       }
@@ -918,41 +1077,80 @@
         }
       }
     },
-    "cosmic_coding_mutations_renamings": {
+    "dbCOSMICCodingMutations_renamings": {
       "properties": {
         "database": {
-          "const": "cosmic_coding_mutations"
+          "const": "dbCOSMICCodingMutations"
         },
         "database_renamings": {
           "type": "array",
           "items": {
-            "$ref": "#/definitions/cosmic_coding_mutations_rename"
+            "$ref": "#/definitions/dbCOSMICCodingMutations_rename"
           }
         }
       }
     },
-    "cosmic_non_coding_variants_renamings": {
+    "dbCOSMICNonCodingVariants_renamings": {
       "properties": {
         "database": {
-          "const": "cosmic_non_coding_variants"
+          "const": "dbCOSMICNonCodingVariants"
         },
         "database_renamings": {
           "type": "array",
           "items": {
-            "$ref": "#/definitions/cosmic_non_coding_variants_rename"
+            "$ref": "#/definitions/dbCOSMICNonCodingVariants_rename"
           }
         }
       }
     },
-    "cosmic_mutation_census_renamings": {
+    "dbCOSMICMutantCensus_renamings": {
       "properties": {
         "database": {
-          "const": "cosmic_mutation_census_variants"
+          "const": "dbCOSMICMutantCensus"
         },
         "database_renamings": {
           "type": "array",
           "items": {
-            "$ref": "#/definitions/cosmic_mutation_census_rename"
+            "$ref": "#/definitions/dbCOSMICMutantCensus_rename"
+          }
+        }
+      }
+    },
+    "dbCiVICVariantSummaries_renamings": {
+      "properties": {
+        "database": {
+          "const": "dbCiVICVariantSummaries"
+        },
+        "database_renamings": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/dbCiVICVariantSummaries_rename"
+          }
+        }
+      }
+    },
+    "dbCiVICClinicalEvidence_renamings": {
+      "properties": {
+        "database": {
+          "const": "dbCiVICClinicalEvidence"
+        },
+        "database_renamings": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/dbCiVICClinicalEvidence_rename"
+          }
+        }
+      }
+    },
+    "dbCiVICGeneSummaries_renamings": {
+      "properties": {
+        "database": {
+          "const": "dbCiVICGeneSummaries"
+        },
+        "database_renamings": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/dbCiVICGeneSummaries_rename"
           }
         }
       }
@@ -995,5 +1193,6 @@
       },
       "default": []
     }
-  }
+  },
+  "additionalProperties": false
 }
