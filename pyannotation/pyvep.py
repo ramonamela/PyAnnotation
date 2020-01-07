@@ -37,7 +37,6 @@ def annotate_stream_vep(input_stream, output_stream, clinvar_fields=[], dbNSFP_f
             "--cache --offline --force_overwrite --format vcf --vcf_info_field ANN --vcf --hgvsg --hgvs --fasta "
             "" + "~/.vep/homo_sapiens/dna/Homo_sapiens.GRCh38.dna.primary_assembly.fa.gz" + " --symbol").split(
         " "))
-    print(command)
     p = Popen(" ".join(command), stdin=input_stream, stdout=output_stream, shell=True)
     return p
 

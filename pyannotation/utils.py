@@ -14,8 +14,12 @@ import os
 from os.path import dirname
 from os.path import abspath
 import time
+import argparse
 import io
 import numpy as np
+from signal import signal, SIGPIPE, SIG_DFL
+
+signal(SIGPIPE, SIG_DFL)
 
 
 def bgzip_tabix_file(in_file, out_file=None):
@@ -137,6 +141,8 @@ def get_multicolumn_by_id(dataframe, id_dataframe, id_column, columns_to_keep, s
 
 
 def add_civic_variant_summaries_fields(vcf_dataframe, path_to_tsv, field_list):
+    if len(field_list) == 0:
+        return vcf_dataframe
     with open(path_to_tsv) as f:
         header = f.readline().rstrip("\n").split("\t")
         variant_summaries_fields_list = list(map(lambda y: (y[:len(header) - 1] + [",".join(y[len(header) - 1:])]),
@@ -198,14 +204,20 @@ def add_columns_from_several_ids(input_dataframe, auxiliar_dataframe, field_list
 
 
 def add_civic_variant_clinical_evidence_fields(vcf_dataframe, path_to_tsv, field_list):
+    # return vcf_dataframe
+    if len(field_list) == 0:
+        return vcf_dataframe
     variant_clinical_evidence = pd.read_csv(path_to_tsv, sep="\t")
-    id_vector = [("gene", "gene"), ("variant", "variant")]
+    if "gene" in list(vcf_dataframe.columns):
+        # field coming from civic variant summaries
+        id_vector = [("gene", "gene"), ("variant", "variant")]
+    elif "Gene" in list(vcf_dataframe.columns):
+        id_vector = [("Gene", "gene"), ("Feature_Name", "variant")]
+        # id_vector = [("gene", "Gene"), ("variant", "Feature_Name")]
     auxiliar_fields = field_list + id_vector
     columns_old_names = [x[0] for x in auxiliar_fields if x[0] in list(variant_clinical_evidence.columns)]
-    columns_new_names = [x[1] for x in auxiliar_fields if x[0] in list(variant_clinical_evidence.columns)]
     variant_clinical_evidence = variant_clinical_evidence[columns_old_names]
     vcf_dataframe = add_columns_from_several_ids(vcf_dataframe, variant_clinical_evidence, field_list, id_vector)
-    vcf_dataframe[columns_old_names].columns = columns_new_names
     return vcf_dataframe
 
 
@@ -249,14 +261,20 @@ def split_dataframe_column(input_dataframe, cols=[], old_internal_sep=",", new_i
 
 
 def add_civic_gene_description_fields(input_dataframe, gene_summaries_tsv, gene_summaries_civic_fields):
+    if len(gene_summaries_civic_fields) == 0:
+        return input_dataframe
     with open(gene_summaries_tsv) as f:
         header = f.readline().rstrip("\n").split("\t")
         gene_summaries_fields_list = list(map(lambda y: (y[:len(header) - 1] + [",".join(y[len(header) - 1:])]),
                                               list(map(lambda x: x.rstrip("\n").split("\t"), list(f)))))
+    ## Dataframe with fields to add
     pandas_gene_summaries = pd.DataFrame(gene_summaries_fields_list, columns=header)
-    id_vector = [("gene", "name")]
-    new_columns_old_names = [x[0] for x in gene_summaries_civic_fields if x[0] in list(pandas_gene_summaries.columns)]
-    new_columns_new_names = [x[0] for x in gene_summaries_civic_fields if x[1] in list(pandas_gene_summaries.columns)]
+    if "Gene" in list(input_dataframe.columns):
+        id_vector = [("Gene", "name")]
+    elif "gene" in list(input_dataframe.columns):
+        id_vector = [("gene", "name")]
+    else:
+        print("Current header: " + str(input_dataframe.columns))
     auxiliar_fields = gene_summaries_civic_fields + id_vector
     columns_old_names = [x[0] for x in auxiliar_fields if x[0] in list(pandas_gene_summaries.columns)] + [x[1] for x in
                                                                                                           id_vector if
@@ -309,9 +327,9 @@ def add_dbsnp_fields(input_dataframe, path_to_dbsnp, dbsnp_multialt_fields=[], d
 
     input_dataframe = pd.concat([input_dataframe, pd.DataFrame(list(current_values.apply(get_columns, axis=1).values),
                                                                columns=(
-                                                                       dbsnp_multialt_fields +
-                                                                       dbsnp_unique_fields +
-                                                                       dbsnp_boolean_fields))],
+                                                                       [x[1] for x in dbsnp_multialt_fields] +
+                                                                       [x[1] for x in dbsnp_unique_fields] +
+                                                                       [x[1] for x in dbsnp_boolean_fields]))],
                                 axis=1)
     return input_dataframe
 
@@ -319,12 +337,12 @@ def add_dbsnp_fields(input_dataframe, path_to_dbsnp, dbsnp_multialt_fields=[], d
 def add_dbnsfp_fields(input_dataframe, path_to_dbnsfp, dbnsfp_fields=[], variant_separator="&"):
     with open_potential_gz(path_to_dbnsfp) as f:
         header = f.readline().decode("utf-8").lstrip("#").rstrip("\n").rstrip("\r").split("\t")
-    extended_dbnsfp_fields = dbnsfp_fields + ["Ensembl_transcriptid", "HGVSc_snpEff", "HGVSc_VEP"]
-
-    # def pick_head(h):
-    #    print(h + " in " + str(header.index(h)))
-    # for dbsnp_field in extended_dbnsfp_fields:
-    #    pick_head(dbsnp_field)
+    dbnsfp_old_fields = [x[0] for x in dbnsfp_fields]
+    dbnsfp_new_fields = [x[1] for x in dbnsfp_fields]
+    extended_dbnsfp_fields = dbnsfp_old_fields
+    for elem in ["Ensembl_transcriptid", "HGVSc_snpEff", "HGVSc_VEP"]:
+        if not elem in dbnsfp_old_fields:
+            extended_dbnsfp_fields = extended_dbnsfp_fields + [elem]
 
     import tabix
     dbnsfp = tabix.open(path_to_dbnsfp)
@@ -343,7 +361,7 @@ def add_dbnsfp_fields(input_dataframe, path_to_dbnsfp, dbnsfp_fields=[], variant
                 raise Exception("Current row is not in the database")
         except:
             returned_values = []
-            for field in dbnsfp_fields:
+            for _ in dbnsfp_old_fields:
                 returned_values.append(variant_separator.join(["."] * len(x["hgvsc_id"].split(variant_separator))))
             return pd.Series(returned_values)
         current_dataframe = pd.DataFrame(
@@ -355,7 +373,7 @@ def add_dbnsfp_fields(input_dataframe, path_to_dbnsfp, dbnsfp_fields=[], variant
             zip(current_dataframe["Ensembl_transcriptid"].tolist(), current_dataframe["HGVSc_snpEff"].tolist()))))
 
         returned_values = []
-        for field in dbnsfp_fields:
+        for field in dbnsfp_old_fields:
             returned_values_current_field = []
             for value_to_check in x["hgvsc_id"].split("&"):
                 try:
@@ -369,7 +387,7 @@ def add_dbnsfp_fields(input_dataframe, path_to_dbnsfp, dbnsfp_fields=[], variant
             returned_values.append(variant_separator.join(returned_values_current_field))
         return pd.Series(returned_values)
 
-    input_dataframe[dbnsfp_fields] = pd.DataFrame(
+    input_dataframe[dbnsfp_new_fields] = pd.DataFrame(
         input_dataframe[["CHROM", "POS", "REF", "ALT", "Allele", "hgvsc_id"]].apply(get_columns, axis=1))
 
     # pd.DataFrame(list(current_values.apply(get_columns, axis=1).values), columns=dbnsfp_fields)
@@ -386,6 +404,8 @@ def add_clinvar_fields(input_dataframe, path_to_clinvar, clinvar_fields=[], vari
 
     import tabix
     clinvar = tabix.open(path_to_clinvar)
+    clinvar_fields_old = [x[0] for x in clinvar_fields]
+    clinvar_fields_new = [x[1] for x in clinvar_fields]
 
     def get_columns(x):
         # x is a single row of the input dataframe
@@ -398,12 +418,12 @@ def add_clinvar_fields(input_dataframe, path_to_clinvar, clinvar_fields=[], vari
             if current_row.shape[0] == 0:
                 raise Exception("Current row is not in the database")
         except:
-            return pd.Series(["."] * len(clinvar_fields))
+            return pd.Series(["."] * len(clinvar_fields_old))
 
         returned_values = []
         info_field = current_row["INFO"].iloc[0]
         clinvar_dictionary = dict(list(map(lambda y: (y.split("=")[0], y.split("=")[1]), info_field.split(";"))))
-        for field in clinvar_fields:
+        for field in clinvar_fields_old:
             if field == "CLINVAR_ID":
                 returned_values.append(current_row["ID"].iloc[0])
             else:
@@ -413,7 +433,7 @@ def add_clinvar_fields(input_dataframe, path_to_clinvar, clinvar_fields=[], vari
                     returned_values.append(".")
         return pd.Series(returned_values)
 
-    input_dataframe[clinvar_fields] = pd.DataFrame(
+    input_dataframe[clinvar_fields_new] = pd.DataFrame(
         input_dataframe[["CHROM", "POS", "ALT"]].apply(get_columns, axis=1))
 
     return input_dataframe
@@ -507,18 +527,30 @@ def _transpose(l):
     return list(map(list, zip(*l)))
 
 
+def compute_fields_with_renamings(database, fields, renamings):
+    if database in renamings.keys():
+        return [(x, x) if (not x in renamings[database].keys()) else (
+            x, renamings[database][x]) for x in fields]
+    else:
+        return [(x, x) for x in fields]
+
+
+## Names are chosen in this way so the header can be changed to **kwargs
 def treat_chunk(chunk, vcf_header, ann_header,
                 input_additional_multifields=None,
                 vep_fields=None,
                 snpeff_fields=None,
-                clinvar_fields=None,
-                dbNSFP_fields=None,
-                dbSNP_multiallelic_fields=None,
-                dbSNP_unique_fields=None,
-                dbSNP_boolean_fields=None,
-                cosmic_coding_mut_fields=None,
-                cosmic_non_coding_vars_fields=None,
-                cosmic_mutant_census_fields=None,
+                dbClinVar=None,
+                dbNSFP=None,
+                dbSNP_boolean=None,
+                dbSNP_multi=None,
+                dbSNP_unique=None,
+                dbCOSMICCodingMutations=None,
+                dbCOSMICNonCodingVariants=None,
+                dbCOSMICMutantCensus=None,
+                dbCiVICGeneSummaries=None,
+                dbCiVICVariantSummaries=None,
+                dbCiVICClinicalEvidence=None,
                 renamings=None):
     if input_additional_multifields is None:
         input_additional_multifields = ["platformnames", "datasetnames", "callsetnames", "callable", "filt",
@@ -532,36 +564,46 @@ def treat_chunk(chunk, vcf_header, ann_header,
         snpeff_fields = ["Allele", "Annotation", "Annotation_Impact", "Gene_Name", "Gene_ID", "Feature_Type",
                          "Feature_ID", "Transcript_BioType", "Rank", "HGVS.c", "HGVS.p", "cDNA.pos/cDNA.length",
                          "CDS.pos/CDS.length", "AA.pos/AA.length", "Distance", "ERRORS/WARNINGS/INFO"]
-    if clinvar_fields is None:
-        clinvar_fields = ["CLINVAR_ID", "CLNDISDB", "CLNDISDBINCL", "CLNDN", "CLNSIG", "CLNREVSTAT"]
-    if dbNSFP_fields is None:
+    if dbClinVar is None:
+        dbClinVar = ["CLINVAR_ID", "CLNDISDB", "CLNDISDBINCL", "CLNDN", "CLNSIG", "CLNREVSTAT"]
+    if dbNSFP is None:
         """
-        dbNSFP_fields = ["MutationAssessor_score", "MutationAssessor_pred", "SIFT_score", "SIFT_pred",
+        dbNSFP = ["MutationAssessor_score", "MutationAssessor_pred", "SIFT_score", "SIFT_pred",
                          "FATHMM_score", "FATHMM_pred", "Polyphen2_HDIV_score", "Polyphen2_HDIV_rankscore",
                          "Polyphen2_HDIV_pred", "Polyphen2_HVAR_score", "Polyphen2_HVAR_rankscore",
                          "Polyphen2_HVAR_pred"]
         """
-        dbNSFP_fields = ["MutationAssessor_score", "MutationAssessor_pred", "SIFT_score", "SIFT_pred", "FATHMM_score",
-                         "FATHMM_pred", "Polyphen2_HDIV_score", "Polyphen2_HDIV_pred", "Polyphen2_HVAR_score",
-                         "Polyphen2_HVAR_pred"]
-    if dbSNP_multiallelic_fields is None:
-        dbSNP_multiallelic_fields = ["TOPMED"]
-    if dbSNP_unique_fields is None:
-        dbSNP_unique_fields = ["SAO", "RS"]
-    if dbSNP_boolean_fields is None:
-        dbSNP_boolean_fields = ["ASP"]
-    if cosmic_coding_mut_fields is None:
-        cosmic_coding_mut_fields = ["COSMIC_ID", "LEGACY_ID", "GENE", "CDS"]
-    if cosmic_non_coding_vars_fields is None:
-        cosmic_non_coding_vars_fields = ["COSMIC_ID", "LEGACY_ID", "GENE", "SNP"]
-    if cosmic_mutant_census_fields is None:
-        cosmic_mutant_census_fields = ["Primary histology"]
+        dbNSFP = ["MutationAssessor_score", "MutationAssessor_pred", "SIFT_score", "SIFT_pred", "FATHMM_score",
+                  "FATHMM_pred", "Polyphen2_HDIV_score", "Polyphen2_HDIV_pred", "Polyphen2_HVAR_score",
+                  "Polyphen2_HVAR_pred"]
+    if dbSNP_boolean is None:
+        dbSNP_boolean = ["ASP"]
+    if dbSNP_multi is None:
+        dbSNP_multi = ["TOPMED"]
+    if dbSNP_unique is None:
+        dbSNP_unique = ["SAO", "RS"]
+    if dbCOSMICCodingMutations is None:
+        dbCOSMICCodingMutations = ["COSMIC_ID", "LEGACY_ID", "GENE", "CDS"]
+    if dbCOSMICNonCodingVariants is None:
+        dbCOSMICNonCodingVariants = ["COSMIC_ID", "LEGACY_ID", "GENE", "SNP"]
+    if dbCOSMICMutantCensus is None:
+        dbCOSMICMutantCensus = ["Primary histology"]
+    if dbCiVICGeneSummaries is None:
+        dbCiVICGeneSummaries = ["description"]
+    if dbCiVICVariantSummaries is None:
+        dbCiVICVariantSummaries = ["gene", "variant", "civic_variant_evidence_score", "civic_variant_evidence_score"]
+    if dbCiVICClinicalEvidence is None:
+        dbCiVICClinicalEvidence = ["drugs", "variant_summary", "disease", "evidence_type", "evidence_direction",
+                                   "evidence_level", "clinical_significance", "citation_id"]
     if renamings is None:
-        renamings = {"cosmic_coding_mut_fields": {"GENE": "COSMIC_CODING_MUT_GENE", "COSMIC_ID": "COSMIC_ID_MUT",
-                                                  "LEGACY_ID": "LEGACY_ID_MUT"},
-                     "cosmic_non_coding_vars_fields": {"GENE": "COSMIC_NON_CODING_VARS_GENE",
-                                                       "COSMIC_ID": "COSMIC_ID_NON_MUT",
-                                                       "LEGACY_ID": "LEGACY_ID_NON_MUT"}}
+        renamings = {"dbCOSMICCodingMutations": {"GENE": "COSMIC_CODING_MUT_GENE", "COSMIC_ID": "COSMIC_ID_MUT",
+                                                 "LEGACY_ID": "LEGACY_ID_MUT"},
+                     "dbCOSMICNonCodingVariants": {"GENE": "COSMIC_NON_CODING_VARS_GENE",
+                                                   "COSMIC_ID": "COSMIC_ID_NON_MUT",
+                                                   "LEGACY_ID": "LEGACY_ID_NON_MUT"}}
+
+    # if len(dbCiVICClinicalEvidence) > 0:
+    #    if (not "gene" in dbCiVICVariantSummaries or not "variant" in dbCiVICGeneSummaries) or ()
 
     format_index = vcf_header.index("FORMAT")
     vcf_fields_header = vcf_header[:format_index]
@@ -586,101 +628,73 @@ def treat_chunk(chunk, vcf_header, ann_header,
                                                                cols=vep_fields + snpeff_fields,
                                                                old_allele_sep=",", new_allele_sep="&",
                                                                old_internal_sep="&", new_internal_sep="|")
-    # vcf_dataframe_with_snpsift_corrected = collapse_dataframe_column(vcf_dataframe_with_info_corrected,
-    #                                                             single_cols=clinvar_fields,
-    #                                                             multiple_cols=[], external_sep="&",
-    #                                                             old_internal_sep=",", new_internal_sep="|")
-    # clinvar_vep_result = [clinvar_prefix] + [clinvar_prefix + "_" + x for x in clinvar_fields]
-    # vcf_dataframe_with_vep_corrected = collapse_dataframe_column(vcf_dataframe_with_snpsift_corrected,
-    #                                                             single_cols=clinvar_vep_result,
-    #                                                             multiple_cols=dbNSFP_fields, external_sep=",",
-    #                                                             old_internal_sep="&", new_internal_sep="&")
-    # vcf_dataframe_with_vep_corrected = clean_dataframe_column(vcf_dataframe_with_vep_corrected,
-    #                                                          cols=clinvar_vep_result,
-    #                                                          old_allele_sep=",", new_allele_sep="&",
-    #                                                          old_internal_sep="&", new_internal_sep="|")
-    # dbNSFP_snpsift_result = ["dbNSFP_" + x for x in dbNSFP_fields]
-    # vcf_dataframe_with_splitted_cols = split_dataframe_column(vcf_dataframe_with_vep_corrected,
-    #                                                          cols=dbNSFP_snpsift_result, old_internal_sep=",",
-    #                                                          new_internal_sep="&", reference_column="Allele",
-    #                                                          reference_separator="&")
+
     vcf_dataframe_with_hgvs_id = compute_hgvs_id(vcf_dataframe_with_info_corrected)
 
+    dbCiVICVariantSummaries_fields = compute_fields_with_renamings("dbCiVICVariantSummaries", dbCiVICVariantSummaries,
+                                                                   renamings)
     module_path = dirname(dirname(abspath(__file__)))
     variant_summaries_fields_tsv = module_path + "/data/cache/civic/nightly-VariantSummaries.tsv"
     vcf_dataframe_with_civic_variant_summaries = add_civic_variant_summaries_fields(vcf_dataframe_with_hgvs_id,
                                                                                     variant_summaries_fields_tsv,
-                                                                                    [("random", "random"),
-                                                                                     ("gene", "gene"),
-                                                                                     ("variant", "variant"), (
-                                                                                         "civic_variant_evidence_score",
-                                                                                         "civic_variant_evidence_score")])
+                                                                                    dbCiVICVariantSummaries_fields)
+
+    dbCiVICClinicalEvidence_fields = compute_fields_with_renamings("dbCiVICClinicalEvidence", dbCiVICClinicalEvidence,
+                                                                   renamings)
 
     variant_clinical_evidence_tsv = module_path + "/data/cache/civic/nightly-ClinicalEvidenceSummaries.tsv"
-    variant_clinical_evidence_civic_fields = [("random", "random"),
-                                              ("drugs", "drugs"),
-                                              ("variant_summary", "variant_summary"),
-                                              ("disease", "disease"),
-                                              ("evidence_type", "evidence_type"),
-                                              ("evidence_direction", "evidence_direction"),
-                                              ("evidence_level", "evidence_level"),
-                                              ("clinical_significance", "clinical_significance"),
-                                              ("evidence_statement", "evidence_statement"),
-                                              ("citation_id", "citation_id")]
     vcf_dataframe_with_civic_clinical_evidence = add_civic_variant_clinical_evidence_fields(
         vcf_dataframe_with_civic_variant_summaries,
         variant_clinical_evidence_tsv,
-        variant_clinical_evidence_civic_fields)
+        dbCiVICClinicalEvidence_fields)
 
+    dbCiVICGeneSummaries_fields = compute_fields_with_renamings("dbCiVICGeneSummaries", dbCiVICGeneSummaries,
+                                                                renamings)
     gene_summaries_tsv = module_path + "/data/cache/civic/nightly-GeneSummaries.tsv"
-    gene_summaries_civic_fields = [("random", "random"), ("description", "gene_description")]
     vcf_dataframe_with_civic_gene_description = add_civic_gene_description_fields(
-        vcf_dataframe_with_civic_clinical_evidence, gene_summaries_tsv, gene_summaries_civic_fields)
+        vcf_dataframe_with_civic_clinical_evidence, gene_summaries_tsv, dbCiVICGeneSummaries_fields)
 
+    dbSNP_multi_fields = compute_fields_with_renamings("dbSNP", dbSNP_multi, renamings)
+    dbSNP_unique_fields = compute_fields_with_renamings("dbSNP", dbSNP_unique, renamings)
+    dbSNP_boolean_fields = compute_fields_with_renamings("dbSNP", dbSNP_boolean, renamings)
     path_to_dbsnp = module_path + "/data/cache/dbSNP/All_20180418.vcf.gz"
     vcf_dataframe_with_dbsnp = add_dbsnp_fields(vcf_dataframe_with_civic_gene_description, path_to_dbsnp,
-                                                dbsnp_multialt_fields=dbSNP_multiallelic_fields,
+                                                dbsnp_multialt_fields=dbSNP_multi_fields,
                                                 dbsnp_unique_fields=dbSNP_unique_fields,
                                                 dbsnp_boolean_fields=dbSNP_boolean_fields)
 
+    dbNSFP_fields = compute_fields_with_renamings("dbNSFP", dbNSFP, renamings)
     path_to_dbNSFP = module_path + "/data/cache/dbNSFP/dbNSFP4.0a.txt.gz"
     vcf_dataframe_with_dbnsfp = add_dbnsfp_fields(vcf_dataframe_with_dbsnp, path_to_dbNSFP, dbnsfp_fields=dbNSFP_fields)
 
+    dbClinVar_fields = compute_fields_with_renamings("dbClinVar", dbClinVar, renamings)
     path_to_clinvar = module_path + "/data/cache/clinvar/clinvar.vcf.gz"
     vcf_dataframe_with_clinvar = add_clinvar_fields(vcf_dataframe_with_dbnsfp, path_to_clinvar,
-                                                    clinvar_fields=clinvar_fields)
+                                                    clinvar_fields=dbClinVar_fields)
 
-    if "cosmic_coding_mut_fields" in renamings.keys():
-        cosmic_coding_mut_fields = [(x, x) if (not x in renamings["cosmic_coding_mut_fields"].keys()) else (
-        x, renamings["cosmic_coding_mut_fields"][x]) for x in cosmic_coding_mut_fields]
-    else:
-        cosmic_coding_mut_fields = [(x, x) for x in cosmic_coding_mut_fields]
+    dbCOSMICCodingMutations_fields = compute_fields_with_renamings("dbCOSMICCodingMutations", dbCOSMICCodingMutations,
+                                                                   renamings)
     path_to_cosmic_coding_mut = module_path + "/data/cache/cosmic/CosmicCodingMuts.vcf.gz"
     vcf_dataframe_with_cosmic_coding_mut = add_cosmic_vcf_fields(vcf_dataframe_with_clinvar,
                                                                  path_to_cosmic_coding_mut,
-                                                                 cosmic_fields=cosmic_coding_mut_fields)
-    if "cosmic_non_coding_vars_fields" in renamings.keys():
-        cosmic_non_coding_vars_fields = [(x, x) if (not x in renamings["cosmic_non_coding_vars_fields"].keys()) else (
-        x, renamings["cosmic_non_coding_vars_fields"][x]) for x in cosmic_non_coding_vars_fields]
-    else:
-        cosmic_non_coding_vars_fields = [(x, x) for x in cosmic_non_coding_vars_fields]
+                                                                 cosmic_fields=dbCOSMICCodingMutations_fields)
+
+    dbCOSMICNonCodingVariants_fields = compute_fields_with_renamings("dbCOSMICNonCodingVariants",
+                                                                     dbCOSMICNonCodingVariants, renamings)
     path_to_cosmic_non_coding_vars = module_path + "/data/cache/cosmic/CosmicNonCodingVariants.vcf.gz"
     vcf_dataframe_with_cosmic_non_coding_mut = add_cosmic_vcf_fields(vcf_dataframe_with_cosmic_coding_mut,
                                                                      path_to_cosmic_non_coding_vars,
-                                                                     cosmic_fields=cosmic_non_coding_vars_fields)
+                                                                     cosmic_fields=dbCOSMICNonCodingVariants_fields)
 
-    if "cosmic_mutant_census_fields" in renamings.keys():
-        cosmic_mutant_census_fields = [(x, x) if (not x in renamings["cosmic_mutant_census_fields"].keys()) else (
-        x, renamings["cosmic_mutant_census_fields"][x]) for x in cosmic_mutant_census_fields]
-    else:
-        cosmic_mutant_census_fields = [(x, x) for x in cosmic_mutant_census_fields]
+    dbCOSMICMutantCensus_fields = compute_fields_with_renamings("dbCOSMICMutantCensus", dbCOSMICMutantCensus, renamings)
     path_to_cosmic_mutant_census = module_path + "/data/cache/cosmic/CosmicMutantExportCensus.tsv.gz"
     with open_potential_gz(path_to_cosmic_mutant_census) as mutant_cens:
         mutant_header = mutant_cens.readline().decode("utf-8").lstrip("#").rstrip("\n").split("\t")
     vcf_dataframe_with_cosmic_mutant_census = add_cosmic_indexed_fields(vcf_dataframe_with_cosmic_non_coding_mut,
                                                                         path_to_cosmic_mutant_census,
-                                                                        cosmic_fields=cosmic_mutant_census_fields,
+                                                                        cosmic_fields=dbCOSMICMutantCensus_fields,
                                                                         cosmic_header=mutant_header)
+    vcf_dataframe_with_cosmic_mutant_census.drop('hgvsc_id', axis=1, inplace=True)
     return vcf_dataframe_with_cosmic_mutant_census
 
 
@@ -694,14 +708,12 @@ def normalize_vcf_to_stream(path_to_vcf):
     return p.stdout
 
 
-def from_vcf_stream_to_maf_stream(input_stream, output_stream, chunk_size=20):
+def from_vcf_stream_to_maf_stream(input_stream, output_stream, config_json, chunk_size=20):
     with normalize_stream_to_stream(input_stream) as input_stream:
-        # with open_potential_gz(input_vcf) as file:
 
         ann_header = None
         for line in input_stream:
             line_string = line.decode("utf-8")
-            print(line)
             if line_string.startswith("##INFO=<ID=ANN"):
 
                 def detect_description(part):
@@ -724,19 +736,77 @@ def from_vcf_stream_to_maf_stream(input_stream, output_stream, chunk_size=20):
         mp_pool = multiprocessing.Pool()
         results = []
 
-        for chunk in iter(lambda: list(islice(input_stream, chunk_size)), []):
-            results.append(mp_pool.apply_async(treat_chunk, (chunk, vcf_header, ann_header)))
+        renaming_dictionary = {}
+        for elem in config_json["all_renamings"]:
+            renaming_dictionary[elem["database"]] = {}
+            for rename in elem["database_renamings"]:
+                renaming_dictionary[elem["database"]][rename["original_name"]] = rename["new_name"]
 
-        results = list(map(lambda x: x.get(), results))
-        big_dataframe = pd.concat(results, sort=False)
-        all_headers = list(big_dataframe.columns)
+        field_dictionary = {}
+        for elem in config_json["annotated_fields"]:
+            field_dictionary[elem["database"]] = elem["fields"]
+
+        module_path = dirname(dirname(abspath(__file__)))
+        path_to_dbsnp = module_path + "/data/cache/dbSNP/All_20180418.vcf.gz"
+        dbSNP_dict = {}
+        with open_potential_gz(path_to_dbsnp) as dbSNP_database:
+            for line in dbSNP_database:
+                line_string = line.decode("utf-8")
+                if line_string.startswith("##INFO=<ID="):
+                    splitted_string = line_string.rstrip("\n")[len("##INFO=<"):-1].split(",")
+                    if splitted_string[2].split("=")[1] == "Flag":
+                        dbSNP_dict[splitted_string[0].split("=")[1]] = "bool"
+                    elif splitted_string[1].split("=")[1] == "1":
+                        dbSNP_dict[splitted_string[0].split("=")[1]] = "unique"
+                    elif splitted_string[1].split("=")[1] == ".":
+                        dbSNP_dict[splitted_string[0].split("=")[1]] = "multi"
+
+                if line_string.startswith("#CHROM"):
+                    break
+
+        field_dictionary["dbSNP_boolean"] = []
+        field_dictionary["dbSNP_multi"] = []
+        field_dictionary["dbSNP_unique"] = []
+        if "dbSNP" in field_dictionary.keys():
+            for field in field_dictionary["dbSNP"]:
+                if dbSNP_dict[field] == "bool":
+                    field_dictionary["dbSNP_boolean"].append(field)
+                elif dbSNP_dict[field] == "unique":
+                    field_dictionary["dbSNP_unique"].append(field)
+                elif dbSNP_dict[field] == "multi":
+                    field_dictionary["dbSNP_multi"].append(field)
+
+        field_dictionary.pop("dbSNP", None)
+
+        field_list = ["dbClinVar", "dbNSFP", "dbCOSMICCodingMutations", "dbCOSMICNonCodingVariants",
+                      "dbCOSMICMutantCensus", "dbCiVICGeneSummaries", "dbCiVICVariantSummaries",
+                      "dbCiVICClinicalEvidence", "dbSNP_boolean", "dbSNP_unique", "dbSNP_multi"]
+        for field in field_list:
+            if not field in field_dictionary.keys():
+                field_dictionary[field] = []
+        field_dictionary["renamings"] = renaming_dictionary
+
+        for chunk in iter(lambda: list(islice(input_stream, chunk_size)), []):
+            results.append(mp_pool.apply_async(treat_chunk, (chunk, vcf_header, ann_header), field_dictionary))
+
+        current_chunk = results[0].get()
+        all_headers = list(current_chunk.columns)
         common_fields = [x for x in all_headers if not x in individual_headers]
         new_order = common_fields + individual_headers
-        big_dataframe = big_dataframe[new_order]
-        big_dataframe.to_csv(output_stream, sep='\t', na_rep='.', index=False)
+        s = io.StringIO()
+        current_chunk[new_order].to_csv(s, sep='\t', na_rep='.', index=False)
+        output_stream.write(s.getvalue())
+        for i in range(1, len(results)):
+            current_chunk = results[i].get()
+            all_headers = list(current_chunk.columns)
+            common_fields = [x for x in all_headers if not x in individual_headers]
+            new_order = common_fields + individual_headers
+            s = io.StringIO()
+            current_chunk[new_order].to_csv(s, sep='\t', na_rep='.', index=False, header=False)
+            output_stream.write(s.getvalue())
 
 
-def from_vcf_to_maf(input_vcf, output_maf, chunk_size=20):
+def from_vcf_to_maf(input_vcf, output_maf, config_json, chunk_size=20):
     """Converts vcf to maf.
     Parameters
     ----------
@@ -746,7 +816,7 @@ def from_vcf_to_maf(input_vcf, output_maf, chunk_size=20):
         Path where the MAF should be stored
     """
     with open_potential_gz(input_vcf) as input_stream, open(output_maf, "w") as output_stream:
-        from_vcf_stream_to_maf_stream(input_stream, output_stream)
+        from_vcf_stream_to_maf_stream(input_stream, output_stream, config_json, chunk_size=chunk_size)
 
 
 def _validate_with_default(validator_class):
@@ -772,7 +842,7 @@ def _check_json_file(input_json, json_schema):
     DefaultValidatingDraft7Validator(json_schema).validate(input_json)
 
 
-def annotate_stream_to_stream(input_stream, output_stream, json_file):
+def annotate_stream_to_stream(input_stream, output_stream, config_json):
     """Annotates the input_stream to the output_stream following the configuration
     present in json_file.
     Parameters
@@ -787,9 +857,6 @@ def annotate_stream_to_stream(input_stream, output_stream, json_file):
 
     module_path = dirname(dirname(abspath(__file__)))
 
-    with open(json_file, 'r') as f:
-        config_json = json.load(f)
-
     with open(module_path + "/config/schema.json") as f:
         schema_json = json.load(f)
 
@@ -799,13 +866,13 @@ def annotate_stream_to_stream(input_stream, output_stream, json_file):
         if "vep" in config_json["prediction_tool"]:
             from pyannotation.pyvep import annotate_stream_vep
             p = annotate_stream_vep(input_stream, PIPE)
-            from_vcf_stream_to_maf_stream(p.stdout, output_stream)
+            from_vcf_stream_to_maf_stream(p.stdout, output_stream, config_json)
         elif "snpeff" in config_json["prediction_tool"]:
             from pyannotation.pysnpeff import annotate_stream_snpeff
             p = annotate_stream_snpeff(input_stream, PIPE)
-            from_vcf_stream_to_maf_stream(p.stdout, output_stream)
+            from_vcf_stream_to_maf_stream(p.stdout, output_stream, config_json)
     else:
-        from_vcf_stream_to_maf_stream(input_stream, output_stream)
+        from_vcf_stream_to_maf_stream(input_stream, output_stream, config_json)
 
 
 def annotate(input_file, output_file, json_file):
@@ -838,6 +905,7 @@ def annotate(input_file, output_file, json_file):
         else:
             p = Popen(["bash", "cat", input_file], stdout=PIPE)
             input_stream = p.stdout
+
         annotate_stream_to_stream(input_stream, output_stream, json_file)
 
 
