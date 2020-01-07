@@ -111,8 +111,8 @@ download_common_files() {
   	if [ ! -f "${BASE_DIR}/data/cache/dbNSFP/dbNSFP4.0a.zip" ]; then
     	pushd "${BASE_DIR}/data/cache/dbNSFP"
     	pip install gdown
-    	popd
     	gdown https://drive.google.com/uc?id=1BNLEdIc4CjCeOa7V7Z8n8P8RHqUaF5GZ
+			popd
   	fi
     pushd "${BASE_DIR}/data/cache/dbNSFP"
     unzip -u dbNSFP4.0a.zip
