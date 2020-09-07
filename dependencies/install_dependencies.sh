@@ -20,12 +20,12 @@ BASE_DIR="${SCRIPT_DIR}/../"
 
 install_suse_dependencies() {
   sudo zypper update
-  sudo zypper -y --non-interactive --no-recommends install libmysqlclient-dev libgd-dev bioperl bcftools python3 python3-pip python3-dev unzip perl perl-base libipc-run-perl libxml-dom-perl libxml-dom-xpath-perl perl-DBD-mysql
+  sudo zypper -y --non-interactive --no-recommends install libmysqlclient-dev libgd-dev bioperl bcftools python3 python3-pip python3-dev unzip perl perl-base libipc-run-perl libxml-dom-perl libxml-dom-xpath-perl perl-DBD-mysql curl
 }
 
 install_ubuntu_dependencies() {
   sudo apt-get update
-  sudo apt-get -y --no-install-recommends --no-install-recommends  install libmysqlclient-dev libgd-dev bioperl bcftools python3 python3-pip python3-dev unzip perl perl-base libipc-run-perl libxml-dom-perl libxml-dom-xpath-perl libdbd-mysql-perl
+  sudo apt-get -y --no-install-recommends --no-install-recommends  install libmysqlclient-dev libgd-dev bioperl bcftools python3 python3-pip python3-dev unzip perl perl-base libipc-run-perl libxml-dom-perl libxml-dom-xpath-perl libdbd-mysql-perl curl
 }
 
 install_general_dependencies() {
@@ -58,6 +58,7 @@ install_general_dependencies() {
   fi
 	pip3 install setuptools wheel
 	pip3 install pytabix nose
+	pip3 install jsonschema pandas
 }
 
 install_vep() {

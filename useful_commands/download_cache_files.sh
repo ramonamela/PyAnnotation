@@ -110,10 +110,10 @@ download_common_files() {
     fi
   	if [ ! -f "${BASE_DIR}/data/cache/dbNSFP/dbNSFP4.0a.zip" ]; then
     	pushd "${BASE_DIR}/data/cache/dbNSFP"
-    	pip install gdown
+    	pip3 install gdown
     	gdown https://drive.google.com/uc?id=1BNLEdIc4CjCeOa7V7Z8n8P8RHqUaF5GZ
-			popd
-  	fi
+	popd
+  fi
     pushd "${BASE_DIR}/data/cache/dbNSFP"
     unzip -u dbNSFP4.0a.zip
     zcat dbNSFP4.0a_variant.chr1 | head -n1 > dbNSFP4.0a.txt
@@ -181,7 +181,7 @@ download_common_files() {
     fi
 		if [ ! -f "${base_path_cosmic}${i}.tbi" ]; then
 			pushd ${base_path_cosmic}
-			python ${BASE_DIR}/useful_commands/transform_cosmic_mutant_export_census.py "${base_path_cosmic}${i}" "${base_path_cosmic}${i::-7}Indexable.tsv"
+			python3 ${BASE_DIR}/useful_commands/transform_cosmic_mutant_export_census.py "${base_path_cosmic}${i}" "${base_path_cosmic}${i::-7}Indexable.tsv"
 			bgzip "${base_path_cosmic}${i::-7}Indexable.tsv"
 			mv "${base_path_cosmic}${i::-7}Indexable.tsv.gz" "${base_path_cosmic}${i}"
 			tabix -s 1 -b 2 -e 2 "${base_path_cosmic}${i}"

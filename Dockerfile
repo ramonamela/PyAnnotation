@@ -11,4 +11,5 @@ RUN apt-get update && \
 	rm -rf /var/lib/apt/lists/*
 
 RUN git clone https://github.com/ramonamela/PyAnnotation.git && \
-	bash -c /PyAnnotation/dependencies/install_dependencies.sh
+	bash -c /PyAnnotation/dependencies/install_dependencies.sh && \
+	bash -c /PyAnnotation/useful_commands/download_cache_files.sh
