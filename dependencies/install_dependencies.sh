@@ -25,7 +25,7 @@ install_suse_dependencies() {
 
 install_ubuntu_dependencies() {
   sudo apt-get update
-  sudo apt-get -y --no-install-recommends --no-install-recommends  install libmysqlclient-dev libgd-dev bioperl bcftools python3 python3-pip python3-dev unzip perl perl-base libipc-run-perl libxml-dom-perl libxml-dom-xpath-perl libdbd-mysql-perl curl
+  sudo apt-get -y --no-install-recommends --no-install-recommends  install gcc libghc-bzlib-prof libmysqlclient-dev libgd-dev bioperl bcftools python3 python3-pip python3-dev unzip perl perl-base libipc-run-perl libxml-dom-perl libxml-dom-xpath-perl libdbd-mysql-perl curl
 }
 
 install_general_dependencies() {
@@ -130,6 +130,7 @@ main() {
   git submodule update --init
   popd
   echo "## INSTALL GENERAL DEPENDENCIES ##"
+  source ~/.bashrc
   install_general_dependencies
   echo "## INSTALL ENSEMBL-VEP ##"
   install_vep ${BASE_DIR}/dependencies/ensembl-vep
