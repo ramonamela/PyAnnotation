@@ -84,8 +84,8 @@ install_vep() {
   #cpanm DBD::mysql
   cpanm Archive::Zip 
   echo "export PATH=\${PATH}:${install_dir}" >> ~/.bashrc
-  echo "export PERL5LIB=${install_dir}/:${install_dir}/modules/:\${PERL5LIB}" >> ~/.bashrc
-	export PERL5LIB=${install_dir}/:${install_dir}/modules/:${PERL5LIB}
+  echo "export PERL5LIB=${install_dir}/:${install_dir}/modules/" >> ~/.bashrc
+	export PERL5LIB=${install_dir}/:${install_dir}/modules/
 	export PATH=${PATH}:${install_dir}
   source ~/.bashrc
   #perl INSTALL.pl --NO_HTSLIB --NO_UPDATE --AUTO p
