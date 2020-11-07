@@ -111,7 +111,12 @@ download_common_files() {
   	if [ ! -f "${BASE_DIR}/data/cache/dbNSFP/dbNSFP4.0a.zip" ]; then
     	pushd "${BASE_DIR}/data/cache/dbNSFP"
     	pip3 install gdown
-    	gdown https://drive.google.com/uc?id=1BNLEdIc4CjCeOa7V7Z8n8P8RHqUaF5GZ
+	result=$(gdown https://drive.google.com/uc?id=1BNLEdIc4CjCeOa7V7Z8n8P8RHqUaF5GZ)
+	if [[ $result == *error* ]]
+	then
+		echo "$result"
+		wget ftp://dbnsfp:dbnsfp@dbnsfp.softgenetics.com/dbNSFP4.0a.zip
+	fi
 	popd
   fi
     pushd "${BASE_DIR}/data/cache/dbNSFP"
