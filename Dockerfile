@@ -20,6 +20,7 @@ RUN apt-get update && \
 	apt-get -y --no-install-recommends install sudo apt-utils git ca-certificates wget make build-essential zlib1g-dev libbz2-dev liblzma-dev libncurses5-dev libncursesw5-dev perl perl-base libpng-dev && \
 	rm -rf /var/lib/apt/lists/*
 
-RUN git clone https://github.com/ramonamela/PyAnnotation.git && \
-	bash -c /PyAnnotation/dependencies/install_dependencies.sh && \
-	bash -c /PyAnnotation/useful_commands/download_cache_files.sh
+RUN git clone https://github.com/ramonamela/PyAnnotation.git \
+	&& bash -c /PyAnnotation/dependencies/install_dependencies.sh
+
+RUN bash -c /PyAnnotation/useful_commands/download_cache_files.sh
